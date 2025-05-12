@@ -48,3 +48,6 @@ current_year <- year(today())
 peck.dat <- peck.daily |> 
    filter(year==current_year) |> 
    mutate(group=1)
+
+saveRDS(peck.dat,
+        "data/peck_water")
