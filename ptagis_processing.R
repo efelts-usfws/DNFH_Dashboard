@@ -222,34 +222,34 @@ lgr_median.dat <- sthd_travel.dat |>
 
 # library(ggplot2)
 # library(plotly)
+# # 
+# travel.plot <- ggplot()+
+#   geom_density(data=dist_plot.dat,adjust=1.5,alpha=0.5,
+#                aes(x=LGR,group=release_grp_plot,fill=release_grp_plot))+
+#   geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
+#                                 group=release_grp_plot,
+#                                 color=release_grp_plot),
+#              linewidth=1.5)+
+#   geom_vline(data=lgr_median.dat,
+#              aes(xintercept = as.numeric(median_lgr),
+#                  group=release_grp_plot,
+#                  color=release_grp_plot),
+#              linetype="dashed",
+#              linewidth=1.25)+
+#   scale_x_datetime(limits = c(xmin,xmax),
+#                date_breaks="1 week",
+#                date_labels="%b %d")+
+#   scale_fill_manual(values=c("blue","red","purple"))+
+#   scale_color_manual(values=c("blue","red","purple"))+
+#   theme_bw()+
+#   labs(x="Arrival Date at Lower Granite Dam",
+#        y="Proportion of total arrivals",
+#        fill="",
+#        color="")+
+#   theme(axis.text.x=element_text(angle=45,hjust=1))
+# travel.plot
 # 
-travel.plot <- ggplot()+
-  geom_density(data=dist_plot.dat,adjust=1.5,alpha=0.5,
-               aes(x=LGR,group=release_grp_plot,fill=release_grp_plot))+
-  geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
-                                group=release_grp_plot,
-                                color=release_grp_plot),
-             linewidth=1.5)+
-  geom_vline(data=lgr_median.dat,
-             aes(xintercept = as.numeric(median_lgr),
-                 group=release_grp_plot,
-                 color=release_grp_plot),
-             linetype="dashed",
-             linewidth=1.25)+
-  scale_x_datetime(limits = c(xmin,xmax),
-               date_breaks="1 week",
-               date_labels="%b %d")+
-  scale_fill_manual(values=c("blue","red","purple"))+
-  scale_color_manual(values=c("blue","red","purple"))+
-  theme_bw()+
-  labs(x="Arrival Date at Lower Granite Dam",
-       y="Proportion of total arrivals",
-       fill="",
-       color="")+
-  theme(axis.text.x=element_text(angle=45,hjust=1))
-travel.plot
-
-ggplotly(travel.plot, tooltip=NULL)
+# ggplotly(travel.plot, tooltip=NULL)
 
 
 
