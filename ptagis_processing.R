@@ -27,21 +27,21 @@ ptagis.dat <- readRDS("data/ptagis_sites")
 # code and dump into RDS; should only need this onve
 # a year untless there are corrections to the data
 
-dnfh.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
-  mutate(release_date=mdy(`Release Date MMDDYYYY`),
-         mark_date=mdy(`Mark Date MMDDYYYY`),
-         hatchery=word(`Mark Site Name`,1,sep=" "),
-         release_sitecode=word(`Release Site Name`,1,sep=" "),
-         tag_file=`Mark File Name`) |>
-  select(pit_id=`Tag Code`,hatchery,
-         mark_date,release_site=`Release Site Name`,
-         release_sitecode,release_date,
-         species=`Species Name`,
-         length_mm=`Length mm`,
-         tag_file)
-
-
- saveRDS(dnfh.csv,"data/dnfh_currentyr_mark")
+# dnfh.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
+#   mutate(release_date=mdy(`Release Date MMDDYYYY`),
+#          mark_date=mdy(`Mark Date MMDDYYYY`),
+#          hatchery=word(`Mark Site Name`,1,sep=" "),
+#          release_sitecode=word(`Release Site Name`,1,sep=" "),
+#          tag_file=`Mark File Name`) |>
+#   select(pit_id=`Tag Code`,hatchery,
+#          mark_date,release_site=`Release Site Name`,
+#          release_sitecode,release_date,
+#          species=`Species Name`,
+#          length_mm=`Length mm`,
+#          tag_file)
+# 
+# 
+#  saveRDS(dnfh.csv,"data/dnfh_currentyr_mark")
 
 # get marking data from the current year
 
@@ -83,7 +83,7 @@ dam_key <- tibble(sitecode=c("GRS","GRJ","GRA",
                          levels=c("LGR","LGS","LOMO","ICH",
                                   "MCN","JD","TDA","BONN")))
 
-sthd_lgr_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Steelhead%20Mainstem.csv",
+lowersnake_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Lower%20Snake%20Detections.csv",
                             delim = ",",
                             locale = locale(encoding= "UTF-16LE")) |> 
   mutate(obs_datetime=mdy_hms(`Obs Time`),
@@ -95,19 +95,8 @@ sthd_lgr_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/report
   group_by(pit_id,site,sitecode) |> 
   slice(which.min(obs_datetime)) 
 
-sthd_lowersnake_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Steelhead%20Lower%20Snake.csv",
-                                 delim = ",",
-                                 locale = locale(encoding= "UTF-16LE")) |> 
-  mutate(obs_datetime=mdy_hms(`Obs Time`),
-         sitecode=word(Site,1,sep=" ")) |> 
-  select(pit_id=Tag,
-         obs_datetime,
-         site=Site,
-         sitecode) |> 
-  group_by(pit_id,site,sitecode) |> 
-  slice(which.min(obs_datetime)) 
 
-sthd_columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Columbia.csv",
+columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Columbia%20Detections.csv",
                                         delim = ",",
                                         locale = locale(encoding= "UTF-16LE")) |> 
   mutate(obs_datetime=mdy_hms(`Obs Time`),
@@ -120,10 +109,9 @@ sthd_columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/r
   slice(which.min(obs_datetime))
 
 
-sthd_detections.bind <- 
-  bind_rows(sthd_lgr_detections.dat,
-            sthd_lowersnake_detections.dat,
-            sthd_columbia_detections.dat) |> 
+detections.bind <- 
+  bind_rows(lowersnake_detections.dat,
+            columbia_detections.dat) |> 
   left_join(dam_key,by="sitecode") |> 
   group_by(pit_id,dam_code) |> 
   summarize(first_detection=min(obs_datetime,na.rm=T)) |>
@@ -136,15 +124,15 @@ sthd_detections.bind <-
 # but will expand to the rest used in
 # CJS modeling
 
-sthd_detections.join <- sthd_mark.dat |> 
+detections.join <- dnfh_mark.dat |> 
   mutate(release_year=year(release_date)) |> 
-  left_join(sthd_detections.bind,by="pit_id") |> 
-  select(pit_id,tag_file,hatchery,release_date,release_year,mark_date,
+  left_join(detections.bind,by="pit_id") |> 
+  select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
          release_sitecode,length_mm,
          dam_code,first_detection) |> 
   pivot_wider(names_from=dam_code,
               values_from=first_detection) |> 
-  select(pit_id,tag_file,hatchery,release_date,release_year,mark_date,
+  select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
          release_sitecode,length_mm,LGR,LGS,
          LOMO,ICH,MCN,JD,BONN) |> 
   mutate(release_date=as.POSIXct(release_date)) |> 
@@ -172,6 +160,7 @@ sthd_detections.join <- sthd_mark.dat |>
          bon_traveltime=floor((BON_time-release_time)/86400))
 
 
+
 # build a QAQC check to see if any of the 
 # fish that are shown as being released in the main
 # stem were detected upstream and/or before they
@@ -182,7 +171,7 @@ sthd_detections.join <- sthd_mark.dat |>
 # get all tags that were shown as being released
 # on s-te
 
-onsite_sthd.dat <- sthd_mark.dat |> 
+onsite.dat <- dnfh_mark.dat |> 
   filter(release_sitecode %in% c("DWORMS","DWORNF"))
 
 
