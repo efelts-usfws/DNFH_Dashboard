@@ -27,12 +27,12 @@ ptagis.dat <- readRDS("data/ptagis_sites")
 # code and dump into RDS; should only need this onve
 # a year untless there are corrections to the data
 
-sthd.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
+dnfh.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
   mutate(release_date=mdy(`Release Date MMDDYYYY`),
          mark_date=mdy(`Mark Date MMDDYYYY`),
          hatchery=word(`Mark Site Name`,1,sep=" "),
          release_sitecode=word(`Release Site Name`,1,sep=" "),
-         tag_file=`Mark File Name`)# |>
+         tag_file=`Mark File Name`) |>
   select(pit_id=`Tag Code`,hatchery,
          mark_date,release_site=`Release Site Name`,
          release_sitecode,release_date,
@@ -40,14 +40,14 @@ sthd.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
          length_mm=`Length mm`,
          tag_file)
 
-# saveRDS(sthd.csv,"data/sthd_currentyr_mark")
+
+ saveRDS(dnfh.csv,"data/dnfh_currentyr_mark")
 
 # get marking data from the current year
 
 
 dnfh_mark.dat <- read_rds("data/dnfh_currentyr_mark")
 
-sthd_mark.dat <- readRDS("data/sthd_currentyr_mark")
 
 # bring in downstream detections at LGR
 # from web API and get the first
