@@ -8,6 +8,7 @@ library(dplyr)
 library(readr)
 library(tidyr)
 library(forcats)
+library(purrr)
 
 conflicts_prefer(vroom::locale,
                  dplyr::filter)
@@ -255,9 +256,20 @@ saveRDS(travel.dat,"data/travel")
 
 
 ## grabbing water data from USGS gaging station
-## at Peck
+## at Peck, North Fork Clearwater
 
 peck.site <- "13341050"
+
+orofino.site <- "13340000"
+
+water.sites <- tibble(name=c("Clearwater (Peck)","Clearwater (Orofino)",
+                             "Lolo Creek","SF Clearwater",
+                             "Clear Creek","Selway",
+                             "Lochsa"),
+                      sitenumber=c("13341050","13340000",
+                                   "13339500","13338500",
+                                   "13337095","13336500",
+                                   "13337000"))
 
 # temp is coded as 00010, discharge is 00060
 
@@ -268,23 +280,32 @@ parm.cd <- c("00010","00060")
 
 today.text <- as.character(today(tz="America/Los_Angeles"))
 
-peck.daily <- readNWISdv(siteNumber=peck.site,
-                           parameterCd=parm.cd,
-                           startDate="1990-01-01",
-                           endDate=today.text) |> 
-  select(date=Date,
+# read in site info for all the sites
+
+
+
+daily.map <- map_dfr(water.sites$sitenumber, 
+                     ~ readNWISdv(siteNumbers=.x,
+                            parameterCd=parm.cd,
+                            startDate="1990-01-01",
+                            endDate=today.text)) |> 
+  select(sitenumber=site_no,
+         date=Date,
          mean_temp=X_00010_00003,
          mean_discharge=X_00060_00003) |> 
   mutate(date=as_date(date),
-         year=year(date))
+         year=year(date)) |> 
+  left_join(water.sites,by="sitenumber")
+
+
 
 current_year <- year(today())
 
-peck.dat <- peck.daily |> 
+water.dat <- daily.map |> 
    filter(year==current_year) |> 
-   mutate(group=1)
+   mutate(group=sitenumber)
 
-saveRDS(peck.dat,
-        "data/peck_water")
+saveRDS(water.dat,
+        "data/water")
 
 
