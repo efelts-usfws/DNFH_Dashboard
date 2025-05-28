@@ -34,6 +34,13 @@ latest_discharge <- water.dat |>
 emigration.dat <- read_rds("data/travel") |> 
   filter(hatchery=="DWOR")
 
+test <- emigration.dat |> 
+  group_by(release_grp_plot) |> 
+  summarize(median_lgr=median(LGR,na.rm=T),
+            release_date=first(release_date),
+            travel_days=as.numeric(floor(median_lgr-release_date)))
+
+
 test_site_count <- n_distinct(emigration.dat$release_sitecode)
 
 test_sites <- str_c(unique(emigration.dat$release_grp_plot),collapse=", ")
@@ -335,31 +342,53 @@ server <- function(input,output,session){
   
   output$lgr_timing_plot <- renderPlotly({
   
-    dat <- emigration_reactive()
+    dat <- emigration_reactive() |> 
+      filter(!is.na(LGR)) |> 
+      mutate(release_grp_plot=factor(release_grp_plot,
+                                     levels = unique(release_grp_plot))) 
+      
     
     vline.dat <- dat |> 
       group_by(release_grp_plot) |> 
-      summarize(release_date=first(release_date))
+      summarize(release_date=first(release_date),
+                .groups= "drop") 
       
     lgr_median.dat <- dat |> 
       group_by(release_grp_plot) |> 
-      summarize(median_lgr=median(LGR,na.rm=T))
-    
+      summarize(median_lgr=median(LGR,na.rm=T),
+                release_date=first(release_date),
+                travel_days=as.numeric(floor(median_lgr-release_date)),
+                .groups="drop") 
     
     xmin <- min(vline.dat$release_date)-days(2)
     xmax <- today()+days(3)
     
     travel.plot <- ggplot()+
-      geom_density(data=dat,adjust=1.5,alpha=0.5,
-                   aes(x=LGR,group=release_grp_plot,fill=release_grp_plot))+
+      geom_density(data=dat,adjust=0.5,alpha=0.5,
+                   aes(x=LGR,fill=release_grp_plot,
+                       color=release_grp_plot,
+                       name=release_grp_plot,
+                       legendgroup=release_grp_plot))+
       geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
-                                    group=release_grp_plot,
-                                    color=release_grp_plot),
+                                    color=release_grp_plot,
+                                    fill=release_grp_plot,
+                                    name=release_grp_plot,
+                                    legendgroup=release_grp_plot),
                  linewidth=1.5)+
       geom_vline(data=lgr_median.dat,
                  aes(xintercept = as.numeric(median_lgr),
-                     group=release_grp_plot,
-                     color=release_grp_plot),
+                     text=str_c(" Release Group:",release_grp_plot,
+                                "<br>",
+                                "Median Date LGR:", format(median_lgr,"%Y-%m-%d"),
+                                "<br>",
+                                "Release Date:",format(release_date,"%Y-%m-%d"),
+                                "<br>",
+                                "Median Days to LGR:",travel_days,
+                                sep=" "),
+                     color=release_grp_plot,
+                     fill=release_grp_plot,
+                     name=release_grp_plot,
+                     legendgroup=release_grp_plot),
                  linetype="dashed",
                  linewidth=1.25)+
       scale_x_datetime(limits = c(xmin,xmax),
@@ -375,10 +404,9 @@ server <- function(input,output,session){
       theme(axis.text.x=element_text(angle=45,hjust=1))
     travel.plot
     
-    ggplotly(travel.plot, tooltip=NULL)
+    ggplotly(travel.plot, tooltip=c("text"))
     
-    
-    
+
     
   })
   
@@ -388,3 +416,72 @@ server <- function(input,output,session){
 
 
 shinyApp(ui, server)
+
+
+
+
+
+test.dat <- emigration.dat |> 
+  filter(!is.na(LGR),
+         species=="Chinook") |> 
+  mutate(release_grp_plot=factor(release_grp_plot,
+                                 levels = unique(release_grp_plot))) 
+
+
+test_vline.dat <- test.dat |> 
+  group_by(release_grp_plot,release_date) |> 
+  summarize(release_date=first(release_date),
+            .groups= "drop") 
+
+test_lgr_median.dat <- test.dat |> 
+  group_by(release_grp_plot) |> 
+  summarize(median_lgr=median(LGR,na.rm=T),
+            release_date=first(release_date),
+            travel_days=as.numeric(floor(median_lgr-release_date)),
+            .groups="drop") 
+
+test.xmin <- min(test_vline.dat$release_date)-days(2)
+test.xmax <- today()+days(3)
+
+test_travel.plot <- ggplot()+
+  geom_density(data=test.dat,adjust=1,alpha=0.5,
+               aes(x=LGR,color=release_grp_plot,
+                   fill=release_grp_plot,
+                   name=release_grp_plot,
+                   legendgroup=release_grp_plot))+
+  geom_vline(data=test_vline.dat,aes(xintercept=as.numeric(release_date),
+                                color=release_grp_plot,
+                                fill=release_grp_plot,
+                                name=release_grp_plot,
+                                legendgroup=release_grp_plot),
+             linewidth=1.5)+
+  geom_vline(data=test_lgr_median.dat,
+             aes(xintercept = as.numeric(median_lgr),
+                 text=str_c(" Release Group:",release_grp_plot,
+                            "<br>",
+                            "Median Date LGR:", format(median_lgr,"%Y-%m-%d"),
+                            "<br>",
+                            "Release Date:",format(release_date,"%Y-%m-%d"),
+                            "<br>",
+                            "Median Days to LGR:",travel_days,
+                            sep=" "),
+                 color=release_grp_plot,
+                 fill=release_grp_plot,
+                 name=release_grp_plot,
+                 legendgroup=release_grp_plot),
+             linetype="dashed",
+             linewidth=1.25)+
+  scale_x_datetime(limits = c(test.xmin,test.xmax),
+                   date_breaks="1 week",
+                   date_labels="%b %d")+
+  # scale_fill_manual(values=c("blue","red","purple"))+
+  # scale_color_manual(values=c("blue","red","purple"))+
+  theme_bw()+
+  labs(x="Arrival Date at Lower Granite Dam",
+       y="Proportion of total arrivals",
+       fill="",
+       color="")+
+  theme(axis.text.x=element_text(angle=45,hjust=1))
+test_travel.plot
+
+ggplotly(test_travel.plot, tooltip=c("text"))
