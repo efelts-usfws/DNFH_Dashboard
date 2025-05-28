@@ -14,6 +14,7 @@ library(bsicons)
 library(viridis)
 library(scales)
 library(fontawesome)
+library(readr)
 
 conflicts_prefer(DT::renderDT,
                  dplyr::filter,
