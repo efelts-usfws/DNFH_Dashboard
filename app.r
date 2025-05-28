@@ -34,6 +34,14 @@ latest_discharge <- water.dat |>
 emigration.dat <- read_rds("data/travel") |> 
   filter(hatchery=="DWOR")
 
+test_site_count <- n_distinct(emigration.dat$release_sitecode)
+
+test_sites <- str_c(unique(emigration.dat$release_grp_plot),collapse=", ")
+
+str_c(test_site_count," Release Sites (",test_sites,")")
+
+
+
 # build some pieces for the timing plot
 
 vline.dat <- emigration.dat |> 
@@ -83,7 +91,7 @@ ui <- page_navbar(
   
   sidebar=sidebar(width=300,
                   
-                  conditionalPanel("input.nav===`Steelhead Emigration`"),
+                  conditionalPanel("input.nav===`Emigration Summaries`"),
                   
                   accordion(
                     
@@ -96,7 +104,18 @@ ui <- page_navbar(
                                   label="Choose a Date Range for water Data",
                                   min=min_date,
                                   max=today(),
-                                  value=c(min_range_date,today()))
+                                  value=c(min_range_date,today())),
+                      
+                      selectInput(inputId = "water_site",
+                                  label="Choose a gaging station",
+                                  choices=sort(unique(water.dat$name)),
+                                  selected="Clearwater (Peck)"),
+                      
+                      selectInput(inputId = "species_filter",
+                                     label="Choose a species",
+                                     choices=c("Chinook",
+                                               "Steelhead"),
+                                     selected="Steelhead")
                       
                       
                     )
@@ -113,23 +132,21 @@ ui <- page_navbar(
               
               value_box(
                 
-                title="PIT Tagged Steelhead",
-                value=str_c("Marked: ",comma(nrow(sthd_emigration.dat))),
-                p(str_c("Detected in Hydrosystem: ",comma(nrow(sthd_detected_count)))),
-                p(str_c("Percent Detected: ",sthd_detected_percent)),
+                title="PIT Tag Summaries",
+                value=textOutput("selected_species"),
+                textOutput("tag_count"),
+                p(textOutput("release_summaries")),
                 showcase = fa("fish-fins")
                 
               ),
               
               value_box(
                 
-                title="Clearwater River Conditions",
-                value=str_c("Discharge: ",
-                            comma(latest_discharge$mean_discharge),
-                            " CFS"),
-                p(str_c("Temperature: ",
-                        latest_discharge$mean_temp,
-                        " C"))
+                title="Water Conditions",
+                value=textOutput("water_site"),
+                textOutput("discharge"),
+                textOutput("temp"),
+                showcase=fa("tint")
                 
                 
               )
@@ -144,15 +161,13 @@ ui <- page_navbar(
                 col_widths=c(6,6,12),
               
               card(
-                card_header("Discharge, Clearwater River at Peck"),
-                plotlyOutput("flow_plot"),
+                card_header("Discharge"),
                 full_screen=TRUE
               ),
               
               card(
                 
-                card_header("Temperature, Clearwater River at Peck"),
-                plotlyOutput("temp_plot"),
+                card_header("Temperature"),
                 full_screen=TRUE
                 
               ),
@@ -160,7 +175,6 @@ ui <- page_navbar(
               card(
                 
                 card_header("Timing to Lower Granite Dam"),
-                plotlyOutput("lgr_timing_plot"),
                 full_screen = TRUE
                 
               )
@@ -178,6 +192,53 @@ ui <- page_navbar(
 
 server <- function(input,output,session){
   
+  
+  # filter water data reactively based on
+  # which site is selected by the user
+  
+  water_reactive <- reactive({
+    
+    water.dat |> 
+      filter(name == input$water_site)
+    
+    
+  })
+  
+  # get text output of selected water site
+  
+  output$water_site <- renderText({
+    
+    dat <- water_reactive()
+    
+    first(dat$name)
+    
+  })
+  
+  # get text output of latest discharge value
+  
+  output$discharge <- renderText({
+    
+    dat <- water_reactive() |> 
+      slice(which.max(date))
+    
+    str_c("Discharge: ",comma(dat$mean_discharge)," CFS")
+    
+    
+  })
+  
+  # get text output of latest temp value
+  
+  output$temp <- renderText({
+    
+    dat <- water_reactive() |> 
+      slice(which.max(date)) |> 
+      mutate(mean_temp_f=(mean_temp*(9/5))+32)
+    
+    str_c("Temperature: ",dat$mean_temp," C","
+          (",round(dat$mean_temp_f,1)," F)")
+    
+    
+  })
   
   # get flow plot reactively
   
@@ -238,6 +299,59 @@ server <- function(input,output,session){
              tooltip=c("text"))
     
   })
+  
+  # make a reactive of emigration data that is 
+  # filtered on user input
+  
+  emigration_reactive <- reactive({
+    
+    emigration.dat |> 
+      filter(species == input$species_filter)
+    
+  })
+  
+  # get text output of selected species
+  
+  output$selected_species <- renderText({
+    
+    dat <- emigration_reactive()
+    
+    first(dat$species)
+    
+  })
+  
+  # get count of number tagged for value box
+  
+  output$tag_count <- renderText({
+    
+    count <- nrow(emigration_reactive())
+    
+    str_c("Number Tagged: ",comma(count))
+    
+    
+  })
+  
+  # get count of release sites and descriptions
+  # for value box
+  
+  
+  output$release_summaries <- renderText({
+    
+    
+    dat <- emigration_reactive()
+    
+    site_count <- n_distinct(dat$release_sitecode)
+    
+    sites <- str_c(unique(dat$release_grp_plot),collapse=", ")
+    
+    str_c(site_count," Release Sites (",sites,")")
+    
+    
+    
+    
+    
+  })
+  
   
   # build the passage plot, don't think it needs to 
   # react to anythin
