@@ -107,7 +107,7 @@ ui <- page_navbar(
                   
                   ),
   
-  nav_panel("Steelhead Emigration",
+  nav_panel("Emigration Summaries",
             
             layout_columns(
               
