@@ -42,34 +42,6 @@ str_c(test_site_count," Release Sites (",test_sites,")")
 
 
 
-# build some pieces for the timing plot
-
-vline.dat <- emigration.dat |> 
-  group_by(hatchery,species,release_grp_plot) |> 
-  summarize(release_date=first(release_date))
-
-lgr_median.dat <- emigration.dat |> 
-  group_by(release_grp_plot,
-           species) |> 
-  summarize(median_lgr=median(LGR,na.rm=T))
-
-xmin <- min(vline.dat$release_date)-days(2)
-xmax <- today()+days(3)
-
-detected_count <- emigration.dat |> 
-  rowwise() |> 
-  filter(any((!is.na(c_across(LGR:BONN)))))
-
-# need to change logic here to apply to multiple species
-
-detected_percent <- str_c((round(nrow(detected_count)/
-                                        nrow(emigration.dat)*100)),
-                               "%",sep=" ")
-
-
-lgr_count <- emigration.dat |> 
-  group_by(hatchery,species) |> 
-  summarize(lgr=sum(!is.na(LGR)))
 
 # automatically get the min for slider
 # to be first of current year
@@ -162,12 +134,14 @@ ui <- page_navbar(
               
               card(
                 card_header("Discharge"),
+                plotlyOutput("flow_plot"),
                 full_screen=TRUE
               ),
               
               card(
                 
                 card_header("Temperature"),
+                plotlyOutput("temp_plot"),
                 full_screen=TRUE
                 
               ),
@@ -175,6 +149,7 @@ ui <- page_navbar(
               card(
                 
                 card_header("Timing to Lower Granite Dam"),
+                plotlyOutput("lgr_timing_plot"),
                 full_screen = TRUE
                 
               )
@@ -244,20 +219,22 @@ server <- function(input,output,session){
   
   flowplot_reactive <- reactive({
     
+    dat <- water_reactive()
+    
     plot_min <- min(input$user_dates)
     plot_max <- max(input$user_dates)
     
-    flow.plot <- peck.dat %>% 
+    flow.plot <- dat %>% 
       mutate(date=as_date(date)) %>% 
       ggplot(aes(x=date,y=mean_discharge,group=group))+
       geom_line(aes(text=str_c(" Date:",date,
-                               "<br>","Mean Discharge (cfs): ",mean_discharge,
+                               "<br>","Mean Discharge (cfs): ",comma(mean_discharge),
                                sep=" ")))+
       scale_x_date(date_breaks = "1 week", date_labels="%b %d",
                    limits=c(as.Date(plot_min),as.Date(plot_max)))+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
-      labs(x="",y="Mean Discharge at Peck Gaging Station")
+      labs(x="",y="Mean Daily Discharge")
     
     
   })
@@ -273,20 +250,24 @@ server <- function(input,output,session){
   
   tempplot_reactive <- reactive({
     
+    dat <- water_reactive()
+    
     plot_min <- min(input$user_dates)
     plot_max <- max(input$user_dates)
     
-    temp.plot <- peck.dat %>% 
-      mutate(date=as_date(date)) %>% 
+    temp.plot <- dat %>% 
+      mutate(date=as_date(date),
+             mean_temp_f=(mean_temp*(9/5))+32) %>% 
       ggplot(aes(x=date,y=mean_temp,group=group))+
       geom_line(aes(text=str_c(" Date:",date,
                                "<br>","Mean Temp (C): ",mean_temp,
+                               "<br>","Mean Temp (F):",round(mean_temp_f,1),
                                sep=" ")))+
       scale_x_date(date_breaks = "1 week", date_labels="%b %d",
                    limits=c(as.Date(plot_min),as.Date(plot_max)))+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
-      labs(x="",y="Mean Temperature at Yankee Fork Gaging Station")
+      labs(x="",y="Mean Daily Temperature")
     
   })
 
@@ -346,20 +327,30 @@ server <- function(input,output,session){
     
     str_c(site_count," Release Sites (",sites,")")
     
-    
-    
-    
-    
   })
   
   
   # build the passage plot, don't think it needs to 
-  # react to anythin
+  # react to anything
   
   output$lgr_timing_plot <- renderPlotly({
+  
+    dat <- emigration_reactive()
+    
+    vline.dat <- dat |> 
+      group_by(release_grp_plot) |> 
+      summarize(release_date=first(release_date))
+      
+    lgr_median.dat <- dat |> 
+      group_by(release_grp_plot) |> 
+      summarize(median_lgr=median(LGR,na.rm=T))
+    
+    
+    xmin <- min(vline.dat$release_date)-days(2)
+    xmax <- today()+days(3)
     
     travel.plot <- ggplot()+
-      geom_density(data=sthd_emigration.dat,adjust=1.5,alpha=0.5,
+      geom_density(data=dat,adjust=1.5,alpha=0.5,
                    aes(x=LGR,group=release_grp_plot,fill=release_grp_plot))+
       geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
                                     group=release_grp_plot,
