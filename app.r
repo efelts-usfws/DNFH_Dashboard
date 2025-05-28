@@ -23,40 +23,44 @@ conflicts_prefer(DT::renderDT,
 
 # read in water data
 
-peck.dat <- read_rds("data/peck_water")
+water.dat <- read_rds("data/water")
 
-latest_discharge <- peck.dat |> 
+latest_discharge <- water.dat |> 
+  group_by(name) |> 
   slice(which.max(date))
 
-# read in steelhead emigration data
+# read in emigration data
 
-sthd_emigration.dat <- read_rds("data/sthd_travel") |> 
+emigration.dat <- read_rds("data/travel") |> 
   filter(hatchery=="DWOR")
 
 # build some pieces for the timing plot
 
-vline.dat <- sthd_emigration.dat |> 
-  group_by(hatchery,release_grp_plot) |> 
+vline.dat <- emigration.dat |> 
+  group_by(hatchery,species,release_grp_plot) |> 
   summarize(release_date=first(release_date))
 
-lgr_median.dat <- sthd_emigration.dat |> 
-  group_by(release_grp_plot) |> 
+lgr_median.dat <- emigration.dat |> 
+  group_by(release_grp_plot,
+           species) |> 
   summarize(median_lgr=median(LGR,na.rm=T))
 
 xmin <- min(vline.dat$release_date)-days(2)
 xmax <- today()+days(3)
 
-sthd_detected_count <- sthd_emigration.dat |> 
+detected_count <- emigration.dat |> 
   rowwise() |> 
   filter(any((!is.na(c_across(LGR:BONN)))))
 
-sthd_detected_percent <- str_c((round(nrow(sthd_detected_count)/
-                                        nrow(sthd_emigration.dat)*100)),
+# need to change logic here to apply to multiple species
+
+detected_percent <- str_c((round(nrow(detected_count)/
+                                        nrow(emigration.dat)*100)),
                                "%",sep=" ")
 
 
-lgr_count <- sthd_emigration.dat |> 
-  group_by(hatchery) |> 
+lgr_count <- emigration.dat |> 
+  group_by(hatchery,species) |> 
   summarize(lgr=sum(!is.na(LGR)))
 
 # automatically get the min for slider
