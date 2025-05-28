@@ -177,41 +177,44 @@ onsite.dat <- dnfh_mark.dat |>
 
 # check to see how many were detected at CLC
 
-upstream.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/Upstream%20Detections%20STHD.csv",
+upstream.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/Upstream%20Detections%20DNFH.csv",
                       delim = ",",
                       locale = locale(encoding= "UTF-16LE")) |> 
   rename(pit_id=`Tag`)
 
 
-onsite_upstream_filter <- onsite_sthd.dat |> 
+onsite_upstream_filter <- onsite.dat |> 
   filter(pit_id %in% upstream.dat$pit_id)
 
 # drop any of those records from further analysis
 
-sthd_detections.filtered <- sthd_detections.join |> 
+detections.filtered <- detections.join |> 
   filter(!pit_id %in% onsite_upstream_filter$pit_id)
 
 
 # think that's what's needed to make travel time plot,
 # test on LGR here:
 
-sthd_travel.dat <- sthd_detections.filtered  |> 
+travel.dat <- detections.filtered  |> 
   mutate(release_grp_plot=case_when(
-           release_sitecode=="DWORMS" ~ "On-Site",
+           release_sitecode=="DWORMS" ~ "Clearwater River",
            release_sitecode=="CLEARC" ~ "Clear Creek",
            release_sitecode=="CLWRSF" ~ "South Fork Clearwater",
            release_sitecode=="NEWSOC" ~ "Newsome Creek",
-           release_sitecode=="MEAD2C" ~ "Meadow Creek"
+           release_sitecode=="MEAD2C" ~ "Meadow Creek",
+           release_sitecode=="KOOS" ~ "Kooskia",
+           release_sitecode=="DWORNF" ~ "North Fork Clearwater River",
+           release_sitecode=="CLWHNF" ~ "North Fork Clearwater River",
+           release_sitecode=="POWP" ~ "Powell",
+           release_sitecode=="REDP" ~ "Red River",
+           release_sitecode=="SELWY1" ~ "Selway River"
          ))
+
+
 
 # write that as an output for use in shiny
 
-saveRDS(sthd_travel.dat,"data/sthd_travel")
-
-lgr_median.dat <- sthd_travel.dat |> 
-  filter(hatchery=="DWOR") |> 
-  group_by(release_grp_plot) |> 
-  summarize(median_lgr=median(LGR,na.rm=T))
+saveRDS(travel.dat,"data/travel")
 
 
 # library(ggplot2)
