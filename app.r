@@ -31,8 +31,8 @@ latest_discharge <- water.dat |>
 
 # read in emigration data
 
-emigration.dat <- read_rds("data/travel") |> 
-  filter(hatchery=="DWOR")
+emigration.dat <- read_rds("data/travel") 
+
 
 # automatically get the min for slider
 # to be first of current year
@@ -285,8 +285,25 @@ server <- function(input,output,session){
   
   emigration_reactive <- reactive({
     
-    emigration.dat |> 
-      filter(species == input$species_filter)
+    if(input$species_filter=="Steelhead")
+      
+    {
+      
+      emigration.dat |> 
+      filter(species == input$species_filter,
+             hatchery=="DWOR")
+      
+    }
+    
+    else{
+      
+      emigration.dat |> 
+        filter(species==input$species_filter,
+               release_grp_plot %in% c("North Fork Clearwater River Early",
+                                       "North Fork Clearwater River Late"))
+      
+      
+    }
     
   })
   
@@ -324,7 +341,7 @@ server <- function(input,output,session){
     
     sites <- str_c(unique(dat$release_grp_plot),collapse=", ")
     
-    str_c(site_count," Release Sites (",sites,")")
+    str_c(site_count," Release Groups (",sites,")")
     
   })
   
@@ -340,12 +357,12 @@ server <- function(input,output,session){
       
     
     vline.dat <- dat |> 
-      group_by(release_grp_plot) |> 
+      group_by(hatchery,release_grp_plot) |> 
       summarize(release_date=first(release_date),
                 .groups= "drop") 
       
     lgr_median.dat <- dat |> 
-      group_by(release_grp_plot) |> 
+      group_by(hatchery,release_grp_plot) |> 
       summarize(median_lgr=median(LGR,na.rm=T),
                 release_date=first(release_date),
                 travel_days=as.numeric(floor(median_lgr-release_date)),
@@ -385,13 +402,14 @@ server <- function(input,output,session){
       scale_x_datetime(limits = c(xmin,xmax),
                        date_breaks="1 week",
                        date_labels="%b %d")+
+      facet_wrap(~hatchery,ncol=1)+
       scale_fill_manual(values=c("blue","red","purple"))+
       scale_color_manual(values=c("blue","red","purple"))+
       theme_bw()+
-      labs(x="Arrival Date at Lower Granite Dam",
+      labs(x="",
            y="Proportion of total arrivals",
            fill="",
-           color="")+
+           color="Release Group")+
       theme(axis.text.x=element_text(angle=45,hjust=1))
     travel.plot
     
@@ -412,12 +430,12 @@ server <- function(input,output,session){
     
     
     vline.dat <- dat |> 
-      group_by(release_grp_plot) |> 
+      group_by(hatchery,release_grp_plot) |> 
       summarize(release_date=first(release_date),
                 .groups= "drop") 
     
     bon_median.dat <- dat |> 
-      group_by(release_grp_plot) |> 
+      group_by(hatchery,release_grp_plot) |> 
       summarize(median_bon=median(BONN,na.rm=T),
                 release_date=first(release_date),
                 travel_days=as.numeric(floor(median_bon-release_date)),
@@ -442,7 +460,7 @@ server <- function(input,output,session){
                  aes(xintercept = as.numeric(median_bon),
                      text=str_c(" Release Group:",release_grp_plot,
                                 "<br>",
-                                "Median Date LGR:", format(median_bon,"%Y-%m-%d"),
+                                "Median Date BONN:", format(median_bon,"%Y-%m-%d"),
                                 "<br>",
                                 "Release Date:",format(release_date,"%Y-%m-%d"),
                                 "<br>",
@@ -457,10 +475,12 @@ server <- function(input,output,session){
       scale_x_datetime(limits = c(xmin,xmax),
                        date_breaks="1 week",
                        date_labels="%b %d")+
+      facet_wrap(~hatchery,
+                 ncol=1)+
       scale_fill_manual(values=c("blue","red","purple"))+
       scale_color_manual(values=c("blue","red","purple"))+
       theme_bw()+
-      labs(x="Arrival Date at Bonneville Dam",
+      labs(x="",
            y="Proportion of total arrivals",
            fill="",
            color="")+
