@@ -98,7 +98,6 @@ ui <- page_navbar(
                 title="PIT Tag Summaries",
                 value=textOutput("selected_species"),
                 textOutput("tag_count"),
-                p(textOutput("release_summaries")),
                 showcase = fa("fish-fins")
                 
               ),
@@ -321,29 +320,17 @@ server <- function(input,output,session){
   
   output$tag_count <- renderText({
     
-    count <- nrow(emigration_reactive())
+    dat <- emigration_reactive() |> 
+      filter(hatchery=="DWOR")
+    
+    count <- nrow(dat)
     
     str_c("Number Tagged: ",comma(count))
     
     
   })
   
-  # get count of release sites and descriptions
-  # for value box
-  
-  
-  output$release_summaries <- renderText({
-    
-    
-    dat <- emigration_reactive()
-    
-    site_count <- n_distinct(dat$release_sitecode)
-    
-    sites <- str_c(unique(dat$release_grp_plot),collapse=", ")
-    
-    str_c(site_count," Release Groups (",sites,")")
-    
-  })
+
   
   
   # build the passage plot for LGR
