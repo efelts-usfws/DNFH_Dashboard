@@ -194,7 +194,14 @@ detections.filtered <- detections.join |>
 
 
 # think that's what's needed to make travel time plot,
-# test on LGR here:
+# test on LGR here: for chinook early vs. late, just
+# manually setting those for the relevant groups from
+# Dworshak and Clearwater 
+
+release_summary <- detections.filtered |> 
+  group_by(species,hatchery,release_sitecode,release_date) |> 
+  tally()
+
 
 travel.dat <- detections.filtered  |> 
   mutate(release_grp_plot=case_when(
@@ -204,8 +211,10 @@ travel.dat <- detections.filtered  |>
            release_sitecode=="NEWSOC" ~ "Newsome Creek",
            release_sitecode=="MEAD2C" ~ "Meadow Creek",
            release_sitecode=="KOOS" ~ "Kooskia",
-           release_sitecode=="DWORNF" ~ "North Fork Clearwater River",
-           release_sitecode=="CLWHNF" ~ "North Fork Clearwater River",
+           release_sitecode=="DWORNF" & release_date==as.Date("2025-03-27") ~ "North Fork Clearwater River Early",
+           release_sitecode=="DWORNF" & release_date==as.Date("2025-04-10") ~ "North Fork Clearwater River Late",
+           release_sitecode=="CLWHNF" & release_date==as.Date("2025-03-27") ~ "North Fork Clearwater River Early",
+           release_sitecode=="CLWHNF" & release_date==as.Date("2025-04-10") ~ "North Fork Clearwater River Late",
            release_sitecode=="POWP" ~ "Powell",
            release_sitecode=="REDP" ~ "Red River",
            release_sitecode=="SELWY1" ~ "Selway River"
@@ -258,9 +267,7 @@ saveRDS(travel.dat,"data/travel")
 ## grabbing water data from USGS gaging station
 ## at Peck, North Fork Clearwater
 
-peck.site <- "13341050"
 
-orofino.site <- "13340000"
 
 water.sites <- tibble(name=c("Clearwater (Peck)","Clearwater (Orofino)",
                              "Lolo Creek","SF Clearwater",
