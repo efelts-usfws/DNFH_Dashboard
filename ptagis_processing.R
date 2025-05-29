@@ -8,6 +8,7 @@ library(dplyr)
 library(readr)
 library(tidyr)
 library(forcats)
+library(purrr)
 
 conflicts_prefer(vroom::locale,
                  dplyr::filter)
@@ -27,7 +28,7 @@ ptagis.dat <- readRDS("data/ptagis_sites")
 # code and dump into RDS; should only need this onve
 # a year untless there are corrections to the data
 
-# sthd.csv <- read_csv("data/Current Year DNFH STHD Mark.csv") |>
+# dnfh.csv <- read_csv("data/Current Year DNFH Mark.csv") |>
 #   mutate(release_date=mdy(`Release Date MMDDYYYY`),
 #          mark_date=mdy(`Mark Date MMDDYYYY`),
 #          hatchery=word(`Mark Site Name`,1,sep=" "),
@@ -40,9 +41,14 @@ ptagis.dat <- readRDS("data/ptagis_sites")
 #          length_mm=`Length mm`,
 #          tag_file)
 # 
-# saveRDS(sthd.csv,"data/sthd_currentyr_mark")
+# 
+#  saveRDS(dnfh.csv,"data/dnfh_currentyr_mark")
 
-sthd_mark.dat <- readRDS("data/sthd_currentyr_mark")
+# get marking data from the current year
+
+
+dnfh_mark.dat <- read_rds("data/dnfh_currentyr_mark")
+
 
 # bring in downstream detections at LGR
 # from web API and get the first
@@ -78,7 +84,7 @@ dam_key <- tibble(sitecode=c("GRS","GRJ","GRA",
                          levels=c("LGR","LGS","LOMO","ICH",
                                   "MCN","JD","TDA","BONN")))
 
-sthd_lgr_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Steelhead%20Mainstem.csv",
+lowersnake_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Lower%20Snake%20Detections.csv",
                             delim = ",",
                             locale = locale(encoding= "UTF-16LE")) |> 
   mutate(obs_datetime=mdy_hms(`Obs Time`),
@@ -90,19 +96,8 @@ sthd_lgr_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/report
   group_by(pit_id,site,sitecode) |> 
   slice(which.min(obs_datetime)) 
 
-sthd_lowersnake_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Steelhead%20Lower%20Snake.csv",
-                                 delim = ",",
-                                 locale = locale(encoding= "UTF-16LE")) |> 
-  mutate(obs_datetime=mdy_hms(`Obs Time`),
-         sitecode=word(Site,1,sep=" ")) |> 
-  select(pit_id=Tag,
-         obs_datetime,
-         site=Site,
-         sitecode) |> 
-  group_by(pit_id,site,sitecode) |> 
-  slice(which.min(obs_datetime)) 
 
-sthd_columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Columbia.csv",
+columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Columbia%20Detections.csv",
                                         delim = ",",
                                         locale = locale(encoding= "UTF-16LE")) |> 
   mutate(obs_datetime=mdy_hms(`Obs Time`),
@@ -115,10 +110,9 @@ sthd_columbia_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/r
   slice(which.min(obs_datetime))
 
 
-sthd_detections.bind <- 
-  bind_rows(sthd_lgr_detections.dat,
-            sthd_lowersnake_detections.dat,
-            sthd_columbia_detections.dat) |> 
+detections.bind <- 
+  bind_rows(lowersnake_detections.dat,
+            columbia_detections.dat) |> 
   left_join(dam_key,by="sitecode") |> 
   group_by(pit_id,dam_code) |> 
   summarize(first_detection=min(obs_datetime,na.rm=T)) |>
@@ -131,15 +125,15 @@ sthd_detections.bind <-
 # but will expand to the rest used in
 # CJS modeling
 
-sthd_detections.join <- sthd_mark.dat |> 
+detections.join <- dnfh_mark.dat |> 
   mutate(release_year=year(release_date)) |> 
-  left_join(sthd_detections.bind,by="pit_id") |> 
-  select(pit_id,tag_file,hatchery,release_date,release_year,mark_date,
+  left_join(detections.bind,by="pit_id") |> 
+  select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
          release_sitecode,length_mm,
          dam_code,first_detection) |> 
   pivot_wider(names_from=dam_code,
               values_from=first_detection) |> 
-  select(pit_id,tag_file,hatchery,release_date,release_year,mark_date,
+  select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
          release_sitecode,length_mm,LGR,LGS,
          LOMO,ICH,MCN,JD,BONN) |> 
   mutate(release_date=as.POSIXct(release_date)) |> 
@@ -167,6 +161,7 @@ sthd_detections.join <- sthd_mark.dat |>
          bon_traveltime=floor((BON_time-release_time)/86400))
 
 
+
 # build a QAQC check to see if any of the 
 # fish that are shown as being released in the main
 # stem were detected upstream and/or before they
@@ -177,47 +172,59 @@ sthd_detections.join <- sthd_mark.dat |>
 # get all tags that were shown as being released
 # on s-te
 
-onsite_sthd.dat <- sthd_mark.dat |> 
+onsite.dat <- dnfh_mark.dat |> 
   filter(release_sitecode %in% c("DWORMS","DWORNF"))
 
 
 # check to see how many were detected at CLC
 
-upstream.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/Upstream%20Detections%20STHD.csv",
+upstream.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/Upstream%20Detections%20DNFH.csv",
                       delim = ",",
                       locale = locale(encoding= "UTF-16LE")) |> 
   rename(pit_id=`Tag`)
 
 
-onsite_upstream_filter <- onsite_sthd.dat |> 
+onsite_upstream_filter <- onsite.dat |> 
   filter(pit_id %in% upstream.dat$pit_id)
 
 # drop any of those records from further analysis
 
-sthd_detections.filtered <- sthd_detections.join |> 
+detections.filtered <- detections.join |> 
   filter(!pit_id %in% onsite_upstream_filter$pit_id)
 
 
 # think that's what's needed to make travel time plot,
-# test on LGR here:
+# test on LGR here: for chinook early vs. late, just
+# manually setting those for the relevant groups from
+# Dworshak and Clearwater 
 
-sthd_travel.dat <- sthd_detections.filtered  |> 
+release_summary <- detections.filtered |> 
+  group_by(species,hatchery,release_sitecode,release_date) |> 
+  tally()
+
+
+travel.dat <- detections.filtered  |> 
   mutate(release_grp_plot=case_when(
-           release_sitecode=="DWORMS" ~ "On-Site",
+           release_sitecode=="DWORMS" ~ "Clearwater River",
            release_sitecode=="CLEARC" ~ "Clear Creek",
            release_sitecode=="CLWRSF" ~ "South Fork Clearwater",
            release_sitecode=="NEWSOC" ~ "Newsome Creek",
-           release_sitecode=="MEAD2C" ~ "Meadow Creek"
+           release_sitecode=="MEAD2C" ~ "Meadow Creek",
+           release_sitecode=="KOOS" ~ "Kooskia",
+           release_sitecode=="DWORNF" & release_date==as.Date("2025-03-27") ~ "North Fork Clearwater River Early",
+           release_sitecode=="DWORNF" & release_date==as.Date("2025-04-10") ~ "North Fork Clearwater River Late",
+           release_sitecode=="CLWHNF" & release_date==as.Date("2025-03-27") ~ "North Fork Clearwater River Early",
+           release_sitecode=="CLWHNF" & release_date==as.Date("2025-04-10") ~ "North Fork Clearwater River Late",
+           release_sitecode=="POWP" ~ "Powell",
+           release_sitecode=="REDP" ~ "Red River",
+           release_sitecode=="SELWY1" ~ "Selway River"
          ))
+
+
 
 # write that as an output for use in shiny
 
-saveRDS(sthd_travel.dat,"data/sthd_travel")
-
-lgr_median.dat <- sthd_travel.dat |> 
-  filter(hatchery=="DWOR") |> 
-  group_by(release_grp_plot) |> 
-  summarize(median_lgr=median(LGR,na.rm=T))
+saveRDS(travel.dat,"data/travel")
 
 
 # library(ggplot2)
@@ -258,9 +265,18 @@ lgr_median.dat <- sthd_travel.dat |>
 
 
 ## grabbing water data from USGS gaging station
-## at Peck
+## at Peck, North Fork Clearwater
 
-peck.site <- "13341050"
+
+
+water.sites <- tibble(name=c("Clearwater (Peck)","Clearwater (Orofino)",
+                             "Lolo Creek","SF Clearwater",
+                             "Clear Creek","Selway",
+                             "Lochsa"),
+                      sitenumber=c("13341050","13340000",
+                                   "13339500","13338500",
+                                   "13337095","13336500",
+                                   "13337000"))
 
 # temp is coded as 00010, discharge is 00060
 
@@ -271,23 +287,32 @@ parm.cd <- c("00010","00060")
 
 today.text <- as.character(today(tz="America/Los_Angeles"))
 
-peck.daily <- readNWISdv(siteNumber=peck.site,
-                           parameterCd=parm.cd,
-                           startDate="1990-01-01",
-                           endDate=today.text) |> 
-  select(date=Date,
+# read in site info for all the sites
+
+
+
+daily.map <- map_dfr(water.sites$sitenumber, 
+                     ~ readNWISdv(siteNumbers=.x,
+                            parameterCd=parm.cd,
+                            startDate="1990-01-01",
+                            endDate=today.text)) |> 
+  select(sitenumber=site_no,
+         date=Date,
          mean_temp=X_00010_00003,
          mean_discharge=X_00060_00003) |> 
   mutate(date=as_date(date),
-         year=year(date))
+         year=year(date)) |> 
+  left_join(water.sites,by="sitenumber")
+
+
 
 current_year <- year(today())
 
-peck.dat <- peck.daily |> 
+water.dat <- daily.map |> 
    filter(year==current_year) |> 
-   mutate(group=1)
+   mutate(group=sitenumber)
 
-saveRDS(peck.dat,
-        "data/peck_water")
+saveRDS(water.dat,
+        "data/water")
 
 
