@@ -135,7 +135,13 @@ ui <- page_navbar(
                                     max=max(emigration_summaries.dat$release_year),
                                     value=c((max(emigration_summaries.dat$release_year)-5),
                                              max(emigration_summaries.dat$release_year)),
-                                    sep="")
+                                    sep=""),
+                        
+                        selectInput(inputId = "comparison_species",
+                                    label="Choose a species",
+                                    choices=c("Chinook",
+                                              "Steelhead"),
+                                    selected="Steelhead")
                        
                       )
                       )
@@ -192,7 +198,29 @@ ui <- page_navbar(
             
             page_fillable(
               
-              layout_columns()
+              layout_columns(
+                
+                col_widths = c(6,6),
+                
+                card(
+                  
+                  card_header("Timing to Lower Granite"),
+                  plotlyOutput("lgrmedian_comp_plot"),
+                  full_screen=TRUE
+                  
+                  
+                ),
+                
+                card(
+                  
+                  card_header("Timing to Bonneville"),
+                  plotlyOutput("bonnmedian_comp_plot"),
+                  full_screen = TRUE
+                  
+                )
+                
+                
+              )
               
             )
     
@@ -254,118 +282,7 @@ ui <- page_navbar(
 server <- function(input,output,session){
   
   
-  # filter water data reactively based on
-  # which site is selected by the user
-  
-  water_reactive <- reactive({
-    
-    water.dat |> 
-      filter(name == input$water_site)
-    
-    
-  })
-  
-  # get text output of selected water site
-  
-  output$water_site <- renderText({
-    
-    dat <- water_reactive()
-    
-    first(dat$name)
-    
-  })
-  
-  # get text output of latest discharge value
-  
-  output$discharge <- renderText({
-    
-    dat <- water_reactive() |> 
-      slice(which.max(date))
-    
-    str_c("Discharge: ",comma(dat$mean_discharge)," CFS")
-    
-    
-  })
-  
-  # get text output of latest temp value
-  
-  output$temp <- renderText({
-    
-    dat <- water_reactive() |> 
-      slice(which.max(date)) |> 
-      mutate(mean_temp_f=(mean_temp*(9/5))+32)
-    
-    str_c("Temperature: ",dat$mean_temp," C","
-          (",round(dat$mean_temp_f,1)," F)")
-    
-    
-  })
-  
-  # get flow plot reactively
-  
-  flowplot_reactive <- reactive({
-    
-    dat <- water_reactive()
-    
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
-    flow.plot <- dat %>% 
-      mutate(date=as_date(date)) %>% 
-      ggplot(aes(x=date,y=mean_discharge,group=group))+
-      geom_line(aes(text=str_c(" Date:",date,
-                               "<br>","Mean Discharge (cfs): ",comma(mean_discharge),
-                               sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
-      theme_bw()+
-      theme(axis.text.x=element_text(angle=45,hjust=1))+
-      labs(x="",y="Mean Daily Discharge")
-    
-    
-  })
-  
-  output$flow_plot <- renderPlotly({
-    
-    plot1 <- flowplot_reactive()
-    
-    ggplotly(plot1,
-             tooltip=c("text"))
-    
-  })
-  
-  tempplot_reactive <- reactive({
-    
-    dat <- water_reactive()
-    
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
-    temp.plot <- dat %>% 
-      mutate(date=as_date(date),
-             mean_temp_f=(mean_temp*(9/5))+32) %>% 
-      ggplot(aes(x=date,y=mean_temp,group=group))+
-      geom_line(aes(text=str_c(" Date:",date,
-                               "<br>","Mean Temp (C): ",mean_temp,
-                               "<br>","Mean Temp (F):",round(mean_temp_f,1),
-                               sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
-      theme_bw()+
-      theme(axis.text.x=element_text(angle=45,hjust=1))+
-      labs(x="",y="Mean Daily Temperature")
-    
-  })
 
-  
-  output$temp_plot <- renderPlotly({
-    
-    plot1 <- tempplot_reactive()
-    
-    ggplotly(plot1,
-             tooltip=c("text"))
-    
-  })
   
   # make a reactive of emigration data that is 
   # filtered on user input
@@ -420,8 +337,6 @@ server <- function(input,output,session){
   })
   
 
-  
-  
   # build the passage plot for LGR
   
   output$lgr_timing_plot <- renderPlotly({
@@ -566,6 +481,213 @@ server <- function(input,output,session){
     ggplotly(travel.plot, tooltip=c("text"))
     
     
+    
+  })
+  
+  # reactive data frame for emigration comparison plots
+  
+  emigration_comp_reactive <- reactive({
+    
+    dat <- emigration_summaries.dat |> 
+      filter(release_year>=min(input$comparison_years),
+             release_year<=max(input$comparison_years),
+             species==input$comparison_species)
+    
+    if(input$comparison_species=="Chinook")
+      
+    {
+      
+      dat |> 
+        filter(!release_group %in% c("Powell","Red River","Selway River",
+                                    "Clear Creek"))
+      
+    }
+    
+    else{
+      
+      dat |> 
+        filter(!release_group %in% c("Meadow Creek","Snake Kelts","Newsome Creek"))
+      
+    }
+    
+    
+    
+  })
+  
+  # construct median time to LGR plot comparing years within release groups
+  
+  output$lgrmedian_comp_plot <- renderPlotly({
+    
+    dat <- emigration_comp_reactive()
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=release_year,y=median_lgr))+
+      geom_col(aes(fill=release_group,
+                   text=str_c(" Release Year:", release_year,
+                              "<br>","Release Dates:",earliest_release,"-",latest_release,
+                              "<br>","Median Travel Time to LGR:",median_lgr,"days",sep=" ")),
+               position="dodge",
+               color="black")+
+      facet_wrap(~hatchery)+
+      theme_bw()+
+      scale_fill_okabe_ito()+
+      scale_x_continuous(breaks=seq(min(dat$release_year),
+                                     max(dat$release_year),1))+
+      theme(axis.text.x = element_text(angle=45, hjust=1))+
+      labs(x="",
+           y="Median Travel Time to Lower Granite Dam (days)",
+           fill="Release Group")
+    plot1
+    
+    ggplotly(plot1,
+             tooltip = c("text"))
+    
+    
+  })
+  
+  # same plot comparing years but timing to Bonneville
+  
+  
+  output$bonnmedian_comp_plot <- renderPlotly({
+    
+    dat <- emigration_comp_reactive()
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=release_year,y=median_bonn))+
+      geom_col(aes(fill=release_group,
+                   text=str_c(" Release Year:", release_year,
+                              "<br>","Release Dates:",earliest_release,"-",latest_release,
+                              "<br>","Median Travel Time to BONN:",median_bonn,"days",sep=" ")),
+               position="dodge",
+               color="black")+
+      facet_wrap(~hatchery)+
+      theme_bw()+
+      scale_fill_okabe_ito()+
+      scale_x_continuous(breaks=seq(min(dat$release_year),
+                                    max(dat$release_year),1))+
+      theme(axis.text.x = element_text(angle=45, hjust=1))+
+      labs(x="",
+           y="Median Travel Time to Bonneville Dam (days)",
+           fill="Release Group")
+    plot1
+    
+    ggplotly(plot1,
+             tooltip = c("text"))
+    
+    
+  })
+  
+  
+  # filter water data reactively based on
+  # which site is selected by the user
+  
+  water_reactive <- reactive({
+    
+    water.dat |> 
+      filter(name == input$water_site)
+    
+    
+  })
+  
+  # get text output of selected water site
+  
+  output$water_site <- renderText({
+    
+    dat <- water_reactive()
+    
+    first(dat$name)
+    
+  })
+  
+  # get text output of latest discharge value
+  
+  output$discharge <- renderText({
+    
+    dat <- water_reactive() |> 
+      slice(which.max(date))
+    
+    str_c("Discharge: ",comma(dat$mean_discharge)," CFS")
+    
+    
+  })
+  
+  # get text output of latest temp value
+  
+  output$temp <- renderText({
+    
+    dat <- water_reactive() |> 
+      slice(which.max(date)) |> 
+      mutate(mean_temp_f=(mean_temp*(9/5))+32)
+    
+    str_c("Temperature: ",dat$mean_temp," C","
+          (",round(dat$mean_temp_f,1)," F)")
+    
+    
+  })
+  
+  # get flow plot reactively
+  
+  flowplot_reactive <- reactive({
+    
+    dat <- water_reactive()
+    
+    plot_min <- min(input$user_dates)
+    plot_max <- max(input$user_dates)
+    
+    flow.plot <- dat %>% 
+      mutate(date=as_date(date)) %>% 
+      ggplot(aes(x=date,y=mean_discharge,group=group))+
+      geom_line(aes(text=str_c(" Date:",date,
+                               "<br>","Mean Discharge (cfs): ",comma(mean_discharge),
+                               sep=" ")))+
+      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
+                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+      theme_bw()+
+      theme(axis.text.x=element_text(angle=45,hjust=1))+
+      labs(x="",y="Mean Daily Discharge")
+    
+    
+  })
+  
+  output$flow_plot <- renderPlotly({
+    
+    plot1 <- flowplot_reactive()
+    
+    ggplotly(plot1,
+             tooltip=c("text"))
+    
+  })
+  
+  tempplot_reactive <- reactive({
+    
+    dat <- water_reactive()
+    
+    plot_min <- min(input$user_dates)
+    plot_max <- max(input$user_dates)
+    
+    temp.plot <- dat %>% 
+      mutate(date=as_date(date),
+             mean_temp_f=(mean_temp*(9/5))+32) %>% 
+      ggplot(aes(x=date,y=mean_temp,group=group))+
+      geom_line(aes(text=str_c(" Date:",date,
+                               "<br>","Mean Temp (C): ",mean_temp,
+                               "<br>","Mean Temp (F):",round(mean_temp_f,1),=
+                               sep=" ")))+
+      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
+                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+      theme_bw()+
+      theme(axis.text.x=element_text(angle=45,hjust=1))+
+      labs(x="",y="Mean Daily Temperature")
+    
+  })
+  
+  
+  output$temp_plot <- renderPlotly({
+    
+    plot1 <- tempplot_reactive()
+    
+    ggplotly(plot1,
+             tooltip=c("text"))
     
   })
 }
