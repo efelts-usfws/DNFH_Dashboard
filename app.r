@@ -33,6 +33,29 @@ latest_discharge <- water.dat |>
 
 emigration.dat <- read_rds("data/travel") 
 
+# summarize current year emigration for comparison plots
+
+current_emigration_summaries <- emigration.dat |> 
+  group_by(hatchery,species,release_year,release_group) |> 
+  summarize(median_lgr=floor(median(lgr_traveltime,na.rm=T)),
+            median_lgr_date=as_date(median(LGR,na.rm=T)),
+            lgr_detections=sum(!is.na(LGR)),
+            median_bonn=floor(median(bonn_traveltime,na.rm=T)),
+            median_bonn_date=as_date(median(BONN,na.rm=T)),
+            bonn_detections=sum(!is.na(BONN)),
+            earliest_release=format(min(release_date),"%B %d"),
+            latest_release=format(max(release_date),"%B %d"))
+
+
+# read in historical emigration data summaries
+
+emigration_summaries_historical.dat <- read_rds("historical/juv_emigration_20_24")
+
+# bind historical to current emigration
+# summaries 
+
+emigration_summaries.dat <- bind_rows(emigration_summaries_historical.dat,
+                                      current_emigration_summaries)
 
 # automatically get the min for slider
 # to be first of current year
@@ -54,7 +77,26 @@ ui <- page_navbar(
   
   sidebar=sidebar(width=300,
                   
-                  conditionalPanel("input.nav===`Emigration Summaries`"),
+                  conditionalPanel("input.nav===`Current Year Juveniles`",
+                  
+                  accordion(
+                    
+                    accordion_panel(
+                      
+                      "Inputs",
+                      
+                      selectInput(inputId = "species_filter",
+                                     label="Choose a species",
+                                     choices=c("Chinook",
+                                               "Steelhead"),
+                                     selected="Steelhead")
+
+                      
+                    )
+                    )),
+                  
+                  conditionalPanel("input.nav===`Water Data`",
+                                   
                   
                   accordion(
                     
@@ -72,24 +114,36 @@ ui <- page_navbar(
                       selectInput(inputId = "water_site",
                                   label="Choose a gaging station",
                                   choices=sort(unique(water.dat$name)),
-                                  selected="Clearwater (Peck)"),
-                      
-                      selectInput(inputId = "species_filter",
-                                     label="Choose a species",
-                                     choices=c("Chinook",
-                                               "Steelhead"),
-                                     selected="Steelhead")
-                      
+                                  selected="Clearwater (Peck)")
                       
                     )
-                    
-                    
                   )
                   
+                  ),
                   
+                  conditionalPanel("input.nav===`Emigration Comparison`",
+                                   
+                    accordion(
+                      
+                      accordion_panel(
+                        
+                        "Inputs",
+                        
+                        sliderInput(inputId="comparison_years",
+                                    label="Choose a Range of Release Years",
+                                    min=min(emigration_summaries.dat$release_year),
+                                    max=max(emigration_summaries.dat$release_year),
+                                    value=c((max(emigration_summaries.dat$release_year)-5),
+                                             max(emigration_summaries.dat$release_year)),
+                                    sep="")
+                       
+                      )
+                      )
+                  )            
+                                   
                   ),
   
-  nav_panel("Emigration Summaries",
+  nav_panel("Current Year Juveniles",
             
             layout_columns(
               
@@ -100,19 +154,7 @@ ui <- page_navbar(
                 textOutput("tag_count"),
                 showcase = fa("fish-fins")
                 
-              ),
-              
-              value_box(
-                
-                title="Water Conditions",
-                value=textOutput("water_site"),
-                textOutput("discharge"),
-                textOutput("temp"),
-                showcase=fa("tint")
-                
-                
               )
-              
               
             ),
             
@@ -120,22 +162,8 @@ ui <- page_navbar(
               
               layout_columns(
                 
-                col_widths=c(6,6,6,6),
-              
-              card(
-                card_header("Discharge"),
-                plotlyOutput("flow_plot"),
-                full_screen=TRUE
-              ),
-              
-              card(
-                
-                card_header("Temperature"),
-                plotlyOutput("temp_plot"),
-                full_screen=TRUE
-                
-              ),
-              
+                col_widths=c(6,6),
+           
               card(
                 
                 card_header("Timing to Lower Granite Dam"),
@@ -158,9 +186,69 @@ ui <- page_navbar(
             )
             
             
+            ),
+  
+  nav_panel("Emigration Comparison",
+            
+            page_fillable(
+              
+              layout_columns()
+              
             )
+    
+    
+    
+    
+  ),
   
-  
+  nav_panel("Water Data",
+            
+            
+            layout_columns(
+              
+              value_box(
+                
+                title="Water Conditions",
+                value=textOutput("water_site"),
+                textOutput("discharge"),
+                textOutput("temp"),
+                showcase=fa("tint")
+                
+                
+              )
+              
+              
+            ),
+            
+            
+            page_fillable(
+              
+              
+              layout_columns(
+                
+                col_widths = c(6,6),
+                
+                card(
+                  card_header("Discharge"),
+                  plotlyOutput("flow_plot"),
+                  full_screen=TRUE
+                ),
+                
+                card(
+                  
+                  card_header("Temperature"),
+                  plotlyOutput("temp_plot"),
+                  full_screen=TRUE
+                  
+                )
+                
+                
+              )
+              
+              
+            )
+  )
+
 )
 
 server <- function(input,output,session){
