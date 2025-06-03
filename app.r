@@ -33,6 +33,8 @@ latest_discharge <- water.dat |>
 
 emigration.dat <- read_rds("data/travel") 
 
+
+
 # summarize current year emigration for comparison plots
 
 current_emigration_summaries <- emigration.dat |> 
@@ -49,7 +51,8 @@ current_emigration_summaries <- emigration.dat |>
 
 # read in historical emigration data summaries
 
-emigration_summaries_historical.dat <- read_rds("historical/juv_emigration_20_24")
+emigration_summaries_historical.dat <- read_rds("data/juv_emigration_20_24")
+
 
 # bind historical to current emigration
 # summaries 
@@ -671,7 +674,7 @@ server <- function(input,output,session){
       ggplot(aes(x=date,y=mean_temp,group=group))+
       geom_line(aes(text=str_c(" Date:",date,
                                "<br>","Mean Temp (C): ",mean_temp,
-                               "<br>","Mean Temp (F):",round(mean_temp_f,1),=
+                               "<br>","Mean Temp (F):",round(mean_temp_f,1),
                                sep=" ")))+
       scale_x_date(date_breaks = "1 week", date_labels="%b %d",
                    limits=c(as.Date(plot_min),as.Date(plot_max)))+
