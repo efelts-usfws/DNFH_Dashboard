@@ -298,8 +298,9 @@ server <- function(input,output,session){
       
       emigration.dat |> 
         filter(species==input$species_filter,
-               release_grp_plot %in% c("North Fork Clearwater River Early",
-                                       "North Fork Clearwater River Late"))
+               release_group %in% c("North Fork Clearwater River Early",
+                                       "North Fork Clearwater River Late",
+                                       "Kooskia"))
       
       
     }
@@ -339,17 +340,17 @@ server <- function(input,output,session){
   
     dat <- emigration_reactive() |> 
       filter(!is.na(LGR)) |> 
-      mutate(release_grp_plot=factor(release_grp_plot,
-                                     levels = unique(release_grp_plot))) 
+      mutate(release_group=factor(release_group,
+                                     levels = unique(release_group))) 
       
     
     vline.dat <- dat |> 
-      group_by(hatchery,release_grp_plot) |> 
+      group_by(hatchery,release_group) |> 
       summarize(release_date=first(release_date),
                 .groups= "drop") 
       
     lgr_median.dat <- dat |> 
-      group_by(hatchery,release_grp_plot) |> 
+      group_by(hatchery,release_group) |> 
       summarize(median_lgr=median(LGR,na.rm=T),
                 release_date=first(release_date),
                 travel_days=as.numeric(floor(median_lgr-release_date)),
@@ -360,19 +361,19 @@ server <- function(input,output,session){
     
     travel.plot <- ggplot()+
       geom_density(data=dat,adjust=0.5,alpha=0.5,
-                   aes(x=LGR,fill=release_grp_plot,
-                       color=release_grp_plot,
-                       name=release_grp_plot,
-                       legendgroup=release_grp_plot))+
+                   aes(x=LGR,fill=release_group,
+                       color=release_group,
+                       name=release_group,
+                       legendgroup=release_group))+
       geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
-                                    color=release_grp_plot,
-                                    fill=release_grp_plot,
-                                    name=release_grp_plot,
-                                    legendgroup=release_grp_plot),
+                                    color=release_group,
+                                    fill=release_group,
+                                    name=release_group,
+                                    legendgroup=release_group),
                  linewidth=1.5)+
       geom_vline(data=lgr_median.dat,
                  aes(xintercept = as.numeric(median_lgr),
-                     text=str_c(" Release Group:",release_grp_plot,
+                     text=str_c(" Release Group:",release_group,
                                 "<br>",
                                 "Median Date LGR:", format(median_lgr,"%Y-%m-%d"),
                                 "<br>",
@@ -380,10 +381,10 @@ server <- function(input,output,session){
                                 "<br>",
                                 "Median Days to LGR:",travel_days,
                                 sep=" "),
-                     color=release_grp_plot,
-                     fill=release_grp_plot,
-                     name=release_grp_plot,
-                     legendgroup=release_grp_plot),
+                     color=release_group,
+                     fill=release_group,
+                     name=release_group,
+                     legendgroup=release_group),
                  linetype="dashed",
                  linewidth=1.25)+
       scale_x_datetime(limits = c(xmin,xmax),
@@ -412,17 +413,17 @@ server <- function(input,output,session){
     
     dat <- emigration_reactive() |> 
       filter(!is.na(BONN)) |> 
-      mutate(release_grp_plot=factor(release_grp_plot,
-                                     levels = unique(release_grp_plot))) 
+      mutate(release_group=factor(release_group,
+                                     levels = unique(release_group))) 
     
     
     vline.dat <- dat |> 
-      group_by(hatchery,release_grp_plot) |> 
+      group_by(hatchery,release_group) |> 
       summarize(release_date=first(release_date),
                 .groups= "drop") 
     
     bon_median.dat <- dat |> 
-      group_by(hatchery,release_grp_plot) |> 
+      group_by(hatchery,release_group) |> 
       summarize(median_bon=median(BONN,na.rm=T),
                 release_date=first(release_date),
                 travel_days=as.numeric(floor(median_bon-release_date)),
@@ -433,19 +434,19 @@ server <- function(input,output,session){
     
     travel.plot <- ggplot()+
       geom_density(data=dat,adjust=0.5,alpha=0.5,
-                   aes(x=BONN,fill=release_grp_plot,
-                       color=release_grp_plot,
-                       name=release_grp_plot,
-                       legendgroup=release_grp_plot))+
+                   aes(x=BONN,fill=release_group,
+                       color=release_group,
+                       name=release_group,
+                       legendgroup=release_group))+
       geom_vline(data=vline.dat,aes(xintercept=as.numeric(release_date),
-                                    color=release_grp_plot,
-                                    fill=release_grp_plot,
-                                    name=release_grp_plot,
-                                    legendgroup=release_grp_plot),
+                                    color=release_group,
+                                    fill=release_group,
+                                    name=release_group,
+                                    legendgroup=release_group),
                  linewidth=1.5)+
       geom_vline(data=bon_median.dat,
                  aes(xintercept = as.numeric(median_bon),
-                     text=str_c(" Release Group:",release_grp_plot,
+                     text=str_c(" Release Group:",release_group,
                                 "<br>",
                                 "Median Date BONN:", format(median_bon,"%Y-%m-%d"),
                                 "<br>",
@@ -453,10 +454,10 @@ server <- function(input,output,session){
                                 "<br>",
                                 "Median Days to BONN:",travel_days,
                                 sep=" "),
-                     color=release_grp_plot,
-                     fill=release_grp_plot,
-                     name=release_grp_plot,
-                     legendgroup=release_grp_plot),
+                     color=release_group,
+                     fill=release_group,
+                     name=release_group,
+                     legendgroup=release_group),
                  linetype="dashed",
                  linewidth=1.25)+
       scale_x_datetime(limits = c(xmin,xmax),
