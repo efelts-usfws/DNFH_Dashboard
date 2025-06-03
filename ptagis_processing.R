@@ -62,27 +62,31 @@ dam_key <- tibble(sitecode=c("GRS","GRJ","GRA",
                              "ICH",
                              "MCJ","MC2","MC1",
                              "JDJ","JO1","JO2",
-                             "TD1",
-                             "B2J","BCC","BO1","BO2","BO4"),
+                             "TD1","TD2",
+                             "B2J","BCC","BO1","BO2","BO4",
+                             "TWX"),
                   dam=c("Lower Granite","Lower Granite","Lower Granite",
                         "Little Goose","Little Goose",
                         "Lower Monumental","Lower Monumental",
                         "Ice Harbor",
                         "McNary","McNary","McNary",
                         "John Day","John Day","John Day",
-                        "The Dalles",
-                        "Bonneville","Bonneville","Bonneville","Bonneville","Bonneville"),
+                        "The Dalles","The Dalles",
+                        "Bonneville","Bonneville","Bonneville","Bonneville","Bonneville",
+                        "Estuary"),
                   dam_code=c("LGR","LGR","LGR",
                              "LGS","LGS",
                              "LOMO","LOMO",
                              "ICH",
                              "MCN","MCN","MCN",
                              "JD","JD","JD",
-                             "TDA",
-                             "BONN","BONN","BONN","BONN","BONN")) |> 
+                             "TDA","TDA",
+                             "BONN","BONN","BONN","BONN","BONN",
+                             "TWX")) |> 
   mutate(dam_code=factor(dam_code,
                          levels=c("LGR","LGS","LOMO","ICH",
-                                  "MCN","JD","TDA","BONN")))
+                                  "MCN","JD","TDA","BONN",
+                                  "TWX")))
 
 lowersnake_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Lower%20Snake%20Detections.csv",
                             delim = ",",
@@ -135,7 +139,7 @@ detections.join <- dnfh_mark.dat |>
               values_from=first_detection) |> 
   select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
          release_sitecode,length_mm,LGR,LGS,
-         LOMO,ICH,MCN,JD,BONN) |> 
+         LOMO,ICH,MCN,JD,TDA,BONN,TWX) |> 
   mutate(release_date=as.POSIXct(release_date)) |> 
   mutate(LGR_ch=ifelse(is.na(LGR),"0","1"),
           LGS_ch=ifelse(is.na(LGS),"0","1"),
@@ -143,7 +147,9 @@ detections.join <- dnfh_mark.dat |>
           ICH_ch=ifelse(is.na(ICH),"0","1"),
           MCN_ch=ifelse(is.na(MCN),"0","1"),
           JD_ch=ifelse(is.na(JD),"0","1"),
+         TDA_ch=ifelse(is.na(TDA),"0","1"),
           BONN_ch=ifelse(is.na(BONN),"0","1"),
+         TWX_ch=ifelse(is.na(TWX),"0","1"),
          release_time=as.numeric(release_date),
          LGR_time=as.numeric(LGR),
          LGS_time=as.numeric(LGS),
@@ -151,14 +157,18 @@ detections.join <- dnfh_mark.dat |>
          ICH_time=as.numeric(ICH),
          MCN_time=as.numeric(MCN),
          JD_time=as.numeric(JD),
-         BON_time=as.numeric(BONN),
+         TDA_time=as.numeric(TDA),
+         BONN_time=as.numeric(BONN),
+         TWX_time=as.numeric(TWX),
          lgr_traveltime=floor((LGR_time-release_time)/86400),
          lgs_traveltime=floor((LGS_time-release_time)/86400),
          lomo_traveltime=floor((LOMO_time-release_time)/86400),
          ich_traveltime=floor((ICH_time-release_time)/86400),
          mcn_traveltime=floor((MCN_time-release_time)/86400),
          jd_traveltime=floor((JD_time-release_time)/86400),
-         bon_traveltime=floor((BON_time-release_time)/86400))
+         tda_traveltime=floor((TDA_time-release_time)/86400),
+         bonn_traveltime=floor((BONN_time-release_time)/86400),
+         twx_traveltime=floor((TWX_time-release_time)/86400),)
 
 
 
@@ -170,7 +180,7 @@ detections.join <- dnfh_mark.dat |>
 # so Clear Creek an SF Clearwater arrays
 
 # get all tags that were shown as being released
-# on s-te
+# on site
 
 onsite.dat <- dnfh_mark.dat |> 
   filter(release_sitecode %in% c("DWORMS","DWORNF"))
@@ -207,7 +217,7 @@ travel.dat <- detections.filtered  |>
   mutate(release_grp_plot=case_when(
            release_sitecode=="DWORMS" ~ "Clearwater River",
            release_sitecode=="CLEARC" ~ "Clear Creek",
-           release_sitecode=="CLWRSF" ~ "South Fork Clearwater",
+           release_sitecode=="CLWRSF" ~ "South Fork Clearwater River",
            release_sitecode=="NEWSOC" ~ "Newsome Creek",
            release_sitecode=="MEAD2C" ~ "Meadow Creek",
            release_sitecode=="KOOS" ~ "Kooskia",
@@ -218,8 +228,14 @@ travel.dat <- detections.filtered  |>
            release_sitecode=="POWP" ~ "Powell",
            release_sitecode=="REDP" ~ "Red River",
            release_sitecode=="SELWY1" ~ "Selway River"
-         ))
-
+         )) |> 
+  select(pit_id,species,tag_file,hatchery,release_date,release_year,mark_date,
+         release_sitecode,release_group=release_grp_plot,length_mm,
+         LGR,LGS,LOMO,ICH,MCN,JD,TDA,BONN,TWX,LGR_ch,LGS_ch,LOMO_ch,
+         ICH_ch,MCN_ch,JD_ch,TDA_ch,BONN_ch,TWX_ch,release_time,LGR_time,
+         LGS_time,LOMO_time,ICH_time,MCN_time,JD_time,TDA_time,BONN_time,
+         TWX_time,lgr_traveltime,lgs_traveltime,lomo_traveltime,ich_traveltime,
+         mcn_traveltime,jd_traveltime,tda_traveltime,bonn_traveltime,twx_traveltime)
 
 
 # write that as an output for use in shiny
