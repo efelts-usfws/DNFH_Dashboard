@@ -324,11 +324,13 @@ travel.dat <- read_rds("data/travel")
 
 historical_travel.dat <- read_rds("historical/juv_hydro_20_24")
 
-travel.bind <- travel.dat |> 
-  bind_rows(historical_travel.dat)
 
 
-travel.sum <- travel.bind |> 
+
+# do the emigration summaries here and save to RDS so
+# it doesn't slow down app launches
+
+historical_travel.sum <- historical_travel.dat |> 
   group_by(hatchery,species,release_year,release_group) |> 
   summarize(median_lgr=floor(median(lgr_traveltime,na.rm=T)),
             median_lgr_date=as_date(median(LGR,na.rm=T)),
@@ -339,12 +341,173 @@ travel.sum <- travel.bind |>
             earliest_release=format(min(release_date),"%B %d"),
             latest_release=format(max(release_date),"%B %d"))
 
-# do steelhead as an example plot
+saveRDS(historical_travel.sum,
+        "historical/juv_emigration_20_24")
 
-library(ggokabeito)
 
-sthd.travel <- travel.sum |> 
+# Now summarize adult detections
+
+
+adult_detections_20_24.dat <- int_20_24.join |> 
+  left_join(marking.export_20_24,by="pit_id") |> 
+  mutate(release_year=year(release_date),
+         years_at_large=obs_year-release_year) |> 
+  filter(years_at_large>0,
+         obs_type %in% c("recapture","passive recapture","observation")) |> 
+  mutate(day_of_year=yday(obs_datetime),
+         dummy_date=case_when(
+           
+           species=="Steelhead" & day_of_year< 183 ~ as.Date(day_of_year,origin="1977-01-01"),
+           
+          TRUE ~ as.Date(day_of_year-1, origin="1976-01-01")                    
+                              
+                              
+                              ),
+         spawn_year=case_when(
+           
+           species=="Steelhead" & day_of_year>=183 ~ (obs_year+1),
+           TRUE ~ obs_year
+           
+         )) |> 
+  mutate(ocean_age=case_when(
+    
+    species=="Steelhead" ~ (spawn_year-release_year-1),
+    TRUE ~ (spawn_year-release_year)
+    
+  ))
+
+age_summary <- adult_detections_20_24.dat |> 
+  group_by(species,ocean_age) |> 
+  tally()
+
+# export adult detections to RDS; dropping SY 2025 stuff 
+# because it's not actually completed when i'm building 
+# this script (June '25)
+
+adult_export_20_24.dat <- adult_detections_20_24.dat |> 
+  filter(!spawn_year==2025)
+
+saveRDS(adult_export_20_24.dat,
+        "historical/adult_detections_20_24")
+
+
+# think about making plots and what will be needed,
+# here Granite adult as an example; using max datetime
+# observation at a dam to say when they passed...for most the
+# min/max will be the same but in the case of
+# fallback/reascension this will get when they actually left
+
+
+lgr_plot.dat <- adult_detections_20_24.dat |>
+  filter(obs_sitecode %in% c("GRA","LGRLDR"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total)) |> 
+  filter(!spawn_year==2025) |> 
+  mutate(dam="Lower Granite")
+
+
+# same thing applied to bonneville
+
+bonn_plot.dat <- adult_detections_20_24.dat |>
+  filter(obs_sitecode %in% c("BO4","BO3","BO1",
+                             "BO2"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year,obs_sitecode) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total))|> 
+  filter(!spawn_year==2025) |> 
+  mutate(dam="Bonneville")
+
+# same thing applied to the Dworshak ladder
+
+dwor_plot.dat <- adult_detections_20_24.dat |>
+  filter(obs_sitecode %in% c("DWL"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year,obs_sitecode) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total)) |> 
+  filter(!spawn_year==2025) |> 
+  mutate(dam="Dworshak Ladder")
+
+# save those plat data to RDS
+
+complete_plot.dat <- bind_rows(lgr_plot.dat,
+                               bonn_plot.dat,
+                               dwor_plot.dat)
+
+
+saveRDS(complete_plot.dat,
+        "historical/complete_adult_plot_20_24")
+
+
+### below here will eventually go away, just 
+# working through plots to put into the shiny
+# app
+
+lgr_total.plot <- lgr_plot.dat |> 
   filter(species=="Steelhead") |> 
+  ggplot(aes(x=dummy_date,y=daily_total,
+             fill=as.factor(spawn_year)))+
+  geom_col(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                          "<br>",
+                          "Number Passed:",daily_total,
+                          sep=" ")))+
+  scale_fill_okabe_ito()+
+  facet_grid(hatchery~spawn_year,
+             scales="free_y")+
+  theme_bw()+
+  labs(y="Daily Adults Passed",
+       fill="")
+lgr_total.plot
+
+ggplotly(lgr_total.plot,
+         tooltip = c("text"))
+
+# now line for accumulation plot
+
+
+lgr_accumulation_plot <- lgr_plot.dat |> 
+  filter(species=="Chinook") |> 
+  ggplot(aes(x=dummy_date,y=running_total,group=spawn_year,
+             color=as.factor(spawn_year)))+
+  geom_line(linewidth=1.2)+
+  scale_color_okabe_ito()+
+  facet_wrap(~hatchery,
+             scales="free_y")+
+  theme_bw()
+lgr_accumulation_plot
+
+
+
+# do steelhead as an example plot
+# 
+# library(ggokabeito)
+# 
+sthd.travel <- travel.sum |>
+  filter(species=="Steelhead") |>
   ggplot(aes(x=release_year,y=median_lgr))+
   geom_col(aes(fill=release_group),
            position="dodge",
@@ -359,11 +522,11 @@ sthd.travel <- travel.sum |>
        y="Median Travel Time to Lower Granite Dam (days)",
        fill="Release Group")
 sthd.travel
-
+# 
 # look at chinook; maybe filter clearwater to just
 # the comparables
 
-chn.travel <- travel.sum |> 
+chn.travel <- travel.sum |>
   filter(species=="Chinook",
          !release_group %in% c("Powell","Red River","Selway River",
                                "Clear Creek")) |>
@@ -385,3 +548,8 @@ chn.travel
 
 ggplotly(chn.travel,
          tooltip = c("text"))
+
+
+# think about how to grab returning adults?
+
+detections.dat <- read_rds("historical/daily_detections_20_24")

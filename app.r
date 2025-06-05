@@ -69,6 +69,15 @@ min_date <- as_date(paste0(format(Sys.Date(), "%Y"),"-01-01"))
 min_range_date <- as_date(paste0(format(Sys.Date(), "%Y"),"-03-01"))
 
 
+# read in adult plotting data
+
+complete_adult.dat <- read_rds("data/complete_adult_plot_20_24")
+
+# read in in-progress adult plotting data
+
+inseason_adult.dat <- read_rds("data/adult_plot_inseason")
+
+
 # Build user interface
 
 ui <- page_navbar(

@@ -247,27 +247,7 @@ saveRDS(travel.dat,"data/travel")
 # be queried by ocean age, basically find anything
 # that is detected at > 0 years at large
 
-# first grab PIT id from the last 
-
-adult_lowersnake.dat <-  vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Lower%20Snake%20Detections.csv",
-                                                        delim = ",",
-                                                           locale = locale(encoding= "UTF-16LE")) |> 
-  mutate(release_date=mdy(`Release Date`),
-         obs_datetime=mdy_hms(`Obs Time`),
-         release_sitecode=word(`Release Site`,1,sep=" "),
-         obs_year=year(obs_datetime),
-         release_year=year(release_date),
-         ocean_age=obs_year-release_year) |> 
-  select(pit_id=`Tag`,species=`Species Name`,
-         release_sitecode,release_date,
-         obs_datetime,obs_year,release_year,
-         ocean_age) |> 
-  filter(ocean_age>0)
-
-
 # read in adult PTAGIS API
-
-old_lgr_example <- read_rds("historical/lgr_adult_plot_20_24")
 
 # need the historical marking data
 
@@ -323,7 +303,8 @@ lgr_plot.dat <- adult_detections.dat |>
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
          annual_total=sum(daily_total)) |> 
-  filter(spawn_year==2025)
+  filter(spawn_year==2025) |> 
+  mutate(dam="Lower Granite")
 
 # same thing applied to bonneville
 
@@ -341,7 +322,8 @@ bonn_plot.dat <- adult_detections.dat |>
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
          annual_total=sum(daily_total))|> 
-  filter(spawn_year==2025)
+  filter(spawn_year==2025) |> 
+  mutate(dam="Bonneville")
 
 # same thing applied to the Dworshak ladder
 
@@ -358,21 +340,15 @@ dwor_plot.dat <- adult_detections.dat |>
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
          annual_total=sum(daily_total)) |> 
-  filter(spawn_year==2025)
+  filter(spawn_year==2025) |> 
+  mutate(dam="Dworshak Ladder")
 
+adult_bind <- bind_rows(lgr_plot.dat,
+                        bonn_plot.dat,
+                        dwor_plot.dat)
 
-
-
-saveRDS(lgr_plot.dat,
-        "data/lgr_adult_plot_inseason25")
-
-
-saveRDS(bonn_plot.dat,
-        "data/bonn_adult_plot_inseason25")
-
-
-saveRDS(dwor_plot.dat,
-        "data/dwor_adult_plot_inseason25")
+saveRDS(adult_bind,
+        "data/adult_plot_inseason")
 
 
 
