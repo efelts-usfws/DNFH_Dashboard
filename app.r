@@ -77,6 +77,12 @@ complete_adult.dat <- read_rds("data/complete_adult_plot_20_24")
 
 inseason_adult.dat <- read_rds("data/adult_plot_inseason")
 
+# right now only using SY 23 and up bc that's whats
+# complete for both species at this point
+
+adult.bind <- complete_adult.dat |> 
+  bind_rows(inseason_adult.dat) |> 
+  filter(spawn_year>=2023)
 
 # Build user interface
 
@@ -107,6 +113,39 @@ ui <- page_navbar(
                       
                     )
                     )),
+                  
+                  conditionalPanel("input.nav===`Current Year Adults`",
+                                   
+                                   accordion(
+                                     
+                                     accordion_panel(
+                                       
+                                       "Inputs",
+                                       
+                                       sliderInput(inputId = "adult_years",
+                                                   label="Choose a range of Spawn Years",
+                                                   min=min(adult.bind$spawn_year),
+                                                   max=max(adult.bind$spawn_year),
+                                                   value=c(min(adult.bind$spawn_year),
+                                                           max(adult.bind$spawn_year)),
+                                                   sep=""),
+                                       
+                                       selectInput(inputId = "adult_species_filter",
+                                                   label="Choose a species",
+                                                   choices=c("Chinook",
+                                                             "Steelhead"),
+                                                   selected="Steelhead"),
+                                       
+                                       selectInput(inputId = "adult_location",
+                                                   "Choose a location of detections",
+                                                   choices=c("Lower Granite",
+                                                             "Bonneville",
+                                                             "Dworshak Ladder"),
+                                                   selected = "Lower Granite")
+                                       
+                                       
+                                     )
+                                   )),
                   
                   conditionalPanel("input.nav===`Water Data`",
                                    
@@ -206,6 +245,41 @@ ui <- page_navbar(
             
             
             ),
+  
+  nav_panel("Current Year Adults",
+            
+            page_fillable(
+              
+              layout_columns(
+                
+                col_widths=c(6,6),
+                
+                
+                card(
+                  
+                  card_header("Daily Passage"),
+                  plotlyOutput("lgr_adult_count"),
+                  full_screen = TRUE
+                  
+                ),
+                
+                
+                card(
+                  
+                  card_header("Cumulative Counts"),
+                  plotlyOutput("lgr_adult_cum"),
+                  full_screen = TRUE
+                  
+                )
+                
+                
+              )
+              
+              
+            )
+    
+    
+  ),
   
   nav_panel("Emigration Comparison",
             
@@ -494,6 +568,73 @@ server <- function(input,output,session){
     ggplotly(travel.plot, tooltip=c("text"))
     
     
+    
+  })
+  
+  # reactive data for adult detecitons
+  
+  adult_reactive <- reactive({
+    
+   adult.bind |> 
+      filter(dam == input$adult_location,
+             species == input$adult_species_filter,
+             spawn_year>=min(input$adult_years),
+             spawn_year<=max(input$adult_years))
+    
+    
+  })
+  
+  # reactive plot for adult daily counts
+  
+  output$lgr_adult_count <- renderPlotly({
+    
+    
+    dat <- adult_reactive()
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=dummy_date,y=daily_total,
+                 fill=as.factor(spawn_year)))+
+      geom_col(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                              "<br>",
+                              "Number Passed:",daily_total,
+                              sep=" ")),show.legend = F)+
+      scale_fill_okabe_ito()+
+      facet_grid(hatchery~spawn_year,
+                 scales="free_y")+
+      theme_bw()+
+      labs(x="",
+           y="Daily Adults Passed",
+           fill="")
+    
+    ggplotly(plot1,
+             tooltip=c("text")) |> 
+      layout(showlegend=FALSE)
+    
+    
+  })
+  
+  # reactive plot for cumulative adults
+  
+  output$lgr_adult_cum <- renderPlotly({
+    
+    dat <- adult_reactive()
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year,
+                 color=as.factor(spawn_year)))+
+      geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                               "<br>",
+                               "Number Passed:",running_total,
+                               sep=" ")))+
+      scale_color_okabe_ito()+
+      facet_wrap(~hatchery,
+                 scales="free_y")+
+      theme_bw()+
+      labs(x="",y="Cumulative Number Passed",
+           color="Spawn Year")
+    
+    ggplotly(plot1,
+             tooltip = c("text"))
     
   })
   
