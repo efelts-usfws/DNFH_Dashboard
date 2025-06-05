@@ -243,6 +243,139 @@ travel.dat <- detections.filtered  |>
 saveRDS(travel.dat,"data/travel")
 
 
+# Now also want to track Adult returns, which will
+# be queried by ocean age, basically find anything
+# that is detected at > 0 years at large
+
+# first grab PIT id from the last 
+
+adult_lowersnake.dat <-  vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Lower%20Snake%20Detections.csv",
+                                                        delim = ",",
+                                                           locale = locale(encoding= "UTF-16LE")) |> 
+  mutate(release_date=mdy(`Release Date`),
+         obs_datetime=mdy_hms(`Obs Time`),
+         release_sitecode=word(`Release Site`,1,sep=" "),
+         obs_year=year(obs_datetime),
+         release_year=year(release_date),
+         ocean_age=obs_year-release_year) |> 
+  select(pit_id=`Tag`,species=`Species Name`,
+         release_sitecode,release_date,
+         obs_datetime,obs_year,release_year,
+         ocean_age) |> 
+  filter(ocean_age>0)
+
+
+# read in adult PTAGIS API
+
+old_lgr_example <- read_rds("historical/lgr_adult_plot_20_24")
+
+# need the historical marking data
+
+mark_complete.dat <- read_rds("data/mark_2020_2024")
+
+adult_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/efelts60/file/DNFH%20Adult%20Inseason.csv",
+                              delim = ",",
+                              locale = locale(encoding= "UTF-16LE")) |> 
+  mutate(obs_sitecode=word(Site,1,sep=" "),
+         obs_datetime=mdy_hms(`Obs Time`)) |> 
+  select(pit_id=Tag,
+         obs_sitecode,obs_datetime,
+         species=`Species Name`) |> 
+  filter(!species=="Coho") |> 
+  select(-c(species)) |> 
+  left_join(mark_complete.dat,by=c("pit_id")) |> 
+  mutate(obs_year=year(obs_datetime),
+         release_year=year(release_date),
+         years_at_large=obs_year-release_year) |> 
+  filter(years_at_large>0) |> 
+  mutate(day_of_year=yday(obs_datetime),
+         dummy_date=case_when(
+           
+           species=="Steelhead" & day_of_year< 183 ~ as.Date(day_of_year,origin="1977-01-01"),
+           
+           TRUE ~ as.Date(day_of_year-1, origin="1976-01-01")                    
+           
+           
+         ),
+         spawn_year=case_when(
+           
+           species=="Steelhead" & day_of_year>=183 ~ (obs_year+1),
+           TRUE ~ obs_year
+           
+         )) |> 
+  mutate(ocean_age=case_when(
+    
+    species=="Steelhead" ~ (spawn_year-release_year-1),
+    TRUE ~ (spawn_year-release_year)
+    
+  ))
+
+lgr_plot.dat <- adult_detections.dat |>
+  filter(obs_sitecode %in% c("GRA","LGRLDR"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total)) |> 
+  filter(spawn_year==2025)
+
+# same thing applied to bonneville
+
+bonn_plot.dat <- adult_detections.dat |>
+  filter(obs_sitecode %in% c("BO4","BO3","BO1",
+                             "BO2"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year,obs_sitecode) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total))|> 
+  filter(spawn_year==2025)
+
+# same thing applied to the Dworshak ladder
+
+dwor_plot.dat <- adult_detections.dat |>
+  filter(obs_sitecode %in% c("DWL"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year,obs_sitecode) |> 
+  slice(which.max(obs_datetime)) |> 
+  ungroup() |> 
+  group_by(dummy_date,spawn_year,species,hatchery) |> 
+  summarize(daily_total=n()) |> 
+  ungroup() |> 
+  group_by(spawn_year,species,hatchery) |> 
+  arrange(spawn_year,dummy_date,species,hatchery) |> 
+  mutate(running_total=cumsum(daily_total),
+         annual_total=sum(daily_total)) |> 
+  filter(spawn_year==2025)
+
+
+
+
+saveRDS(lgr_plot.dat,
+        "data/lgr_adult_plot_inseason25")
+
+
+saveRDS(bonn_plot.dat,
+        "data/bonn_adult_plot_inseason25")
+
+
+saveRDS(dwor_plot.dat,
+        "data/dwor_adult_plot_inseason25")
+
+
+
 # library(ggplot2)
 # library(plotly)
 # # 
