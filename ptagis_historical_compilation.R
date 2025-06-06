@@ -415,6 +415,17 @@ lgr_plot.dat <- adult_detections_20_24.dat |>
   mutate(dam="Lower Granite")
 
 
+search <- adult_detections_20_24.dat |>
+  filter(obs_sitecode %in% c("GRA","LGRLDR"),
+         !release_group=="Snake Kelts") |>
+  group_by(pit_id,obs_year) |> 
+  slice(which.max(obs_datetime)) |> 
+  filter(spawn_year==2023,
+         species=="Chinook",
+         hatchery=="CLWH")
+
+
+
 # same thing applied to bonneville
 
 bonn_plot.dat <- adult_detections_20_24.dat |>

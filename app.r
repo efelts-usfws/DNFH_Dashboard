@@ -69,13 +69,72 @@ min_date <- as_date(paste0(format(Sys.Date(), "%Y"),"-01-01"))
 min_range_date <- as_date(paste0(format(Sys.Date(), "%Y"),"-03-01"))
 
 
-# read in adult plotting data
+# read in adult plotting data and extend to
+# the end of a given spawning season
 
-complete_adult.dat <- read_rds("data/complete_adult_plot_20_24")
+# helper df for limits on max for dummy date depending
+# on species
+
+species_max_dates <- tibble(
+  species=c("Chinook","Steelhead",
+            "Chinook","Steelhead",
+            "Chinook","Steelhead"),
+  dam=c("Lower Granite","Lower Granite",
+        "Bonneville","Bonneville",
+        "Dworshak Ladder","Dworshak Ladder"),
+  max_date=as.Date(c("1976-07-15","1977-05-01",
+                     "1976-07-15","1977-05-01",
+                     "1976-09-15","1977-05-01"))
+)
+
+complete_adult.dat <- read_rds("data/complete_adult_plot_20_24") |> 
+  left_join(species_max_dates,by=c("species","dam")) |> 
+  group_by(species,hatchery,spawn_year,dam) |> 
+  mutate(min_date=min(dummy_date,na.rm=TRUE)) |> 
+  complete(
+    dummy_date=seq(min(min_date), max(max_date), by="day")
+  ) |> 
+  ungroup() |> 
+  select(-c(min_date,max_date)) |> 
+  mutate(across(daily_total,~replace_na(.x,0))) |> 
+  group_by(species,hatchery,spawn_year,dam) |> 
+  fill(c("running_total","annual_total"),.direction="down")
 
 # read in in-progress adult plotting data
 
-inseason_adult.dat <- read_rds("data/adult_plot_inseason")
+# to complete through current date need to set
+# dummy date and have that be dependent on species
+
+
+if(yday(today()) >= 106 & yday(today()) <= 212) {
+  default_adult_species <-  "Chinook"
+} else {
+  
+  default_adult_species <- "Steelhead"
+  
+}
+
+inseason_max_dates <- tibble(species=c("Chinook","Steelhead")) |> 
+  mutate(day_of_year=yday(today()-days(1)),
+         inseason_max=case_when(
+           
+           species=="Steelhead" & day_of_year < 183 ~ as.Date(day_of_year,origin="1977-01-01"),
+           TRUE ~ as.Date(day_of_year, origin="1976-01-01")
+           
+           
+         )) 
+
+
+inseason_adult.dat <- read_rds("data/adult_plot_inseason") |> 
+  left_join(inseason_max_dates,by="species") |> 
+  group_by(species,hatchery,spawn_year,dam) |> 
+  mutate(min_date=min(dummy_date,na.rm=TRUE)) |> 
+  complete(dummy_date=seq(min(min_date),max(inseason_max),by="day")) |> 
+  ungroup() |> 
+  select(-c(min_date,inseason_max)) |> 
+  mutate(across(daily_total,~replace_na(.x,0))) |> 
+  group_by(species,hatchery,spawn_year,dam) |> 
+  fill(c("running_total","annual_total"),.direction="down")
 
 # right now only using SY 23 and up bc that's whats
 # complete for both species at this point
