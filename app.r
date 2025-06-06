@@ -84,6 +84,7 @@ adult.bind <- complete_adult.dat |>
   bind_rows(inseason_adult.dat) |> 
   filter(spawn_year>=2023)
 
+
 # make a reference value for which SY we're in 
 # depending on species
 
@@ -98,6 +99,22 @@ current_sy <- tibble(species=c("Steelhead","Chinook")) |>
 # make a reference for the last week 
 
 last_week <- yday(today()-days(7))
+
+# make the default selection for adult returning
+# depend on today's date; for now setting to be
+# Chinook if April 15-July 31 otherwise steelhead
+
+
+
+if(yday(today()) >= 106 & yday(today()) <= 212) {
+  default_adult_species <-  "Chinook"
+} else {
+  
+  default_adult_species <- "Steelhead"
+  
+}
+
+
 
 # Build user interface
 
@@ -149,7 +166,7 @@ ui <- page_navbar(
                                                    label="Choose a species",
                                                    choices=c("Chinook",
                                                              "Steelhead"),
-                                                   selected="Steelhead"),
+                                                   selected=default_adult_species),
                                        
                                        selectInput(inputId = "adult_location",
                                                    "Choose a location of detections",
@@ -768,16 +785,25 @@ server <- function(input,output,session){
   
   output$lgr_adult_cum <- renderPlotly({
     
-    dat <- adult_reactive()
+    dat <- adult_reactive() |> 
+      left_join(current_sy,by="species") |> 
+      mutate(yr_category=case_when(
+        
+        spawn_year.x==spawn_year.y ~ "Current",
+        TRUE ~ "Previous"
+        
+      ))
     
     plot1 <- dat |> 
-      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year,
-                 color=as.factor(spawn_year)))+
+      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year.x,
+                 color=as.factor(yr_category)))+
       geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                               "<br>",
+                               "Spawn Year:",spawn_year.x,
                                "<br>",
                                "Number Passed:",running_total,
                                sep=" ")))+
-      scale_color_okabe_ito()+
+      scale_color_manual(values=c("steelblue","gray70"))+
       facet_wrap(~hatchery,
                  scales="free_y")+
       theme_bw()+
