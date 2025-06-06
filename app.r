@@ -84,6 +84,19 @@ adult.bind <- complete_adult.dat |>
   bind_rows(inseason_adult.dat) |> 
   filter(spawn_year>=2023)
 
+# make a reference value for which SY we're in 
+# depending on species
+
+current_sy <- tibble(species=c("Steelhead","Chinook")) |> 
+  mutate(spawn_year=case_when(
+  
+  species=="Steelhead" & yday(today()) >= 183 ~ year(today())+1,
+  
+  TRUE ~ year(today())
+))
+
+
+
 # Build user interface
 
 ui <- page_navbar(
@@ -247,6 +260,21 @@ ui <- page_navbar(
             ),
   
   nav_panel("Current Year Adults",
+            
+            layout_columns(
+              
+              value_box(
+                
+                title="Number Passed, Current Year-to-date",
+                value=textOutput("adult_ytd_dwr"),
+                p(textOutput("adult_ytd_koos")),
+                p(textOutput("adult_ytd_clwh")),
+                showcase = bs_icon("graph-up-arrow")
+                
+                
+              )
+              
+            ),
             
             page_fillable(
               
@@ -581,6 +609,54 @@ server <- function(input,output,session){
              spawn_year>=min(input$adult_years),
              spawn_year<=max(input$adult_years))
     
+    
+  })
+  
+  # get summary values for number of adults over the 
+  # various dams year-to-date.
+  
+  output$adult_ytd_dwr <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+    filter(hatchery=="DWOR",
+           spawn_year==sy.dat$spawn_year) |> 
+      slice(which.max(running_total))
+    
+      str_c("Dworshak: ",dat$annual_total)
+      
+    })
+  
+  output$adult_ytd_koos <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+      filter(hatchery=="KOOS",
+             spawn_year==sy.dat$spawn_year) |> 
+      slice(which.max(running_total))
+    
+    req(nrow(dat)>0)
+    
+    str_c("Kooskia: ",dat$annual_total)
+    
+  })
+  
+  
+  output$adult_ytd_clwh <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+      filter(hatchery=="CLWH",
+             spawn_year==sy.dat$spawn_year) |> 
+      slice(which.max(running_total))
+    
+    str_c("Clearwater: ",dat$annual_total)
     
   })
   
