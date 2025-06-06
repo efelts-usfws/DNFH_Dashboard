@@ -1,6 +1,7 @@
 
 library(shiny)
 library(dplyr)
+library(tidyr)
 library(stringr)
 library(ggplot2)
 library(lubridate)
