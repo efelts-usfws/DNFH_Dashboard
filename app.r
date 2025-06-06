@@ -95,7 +95,9 @@ current_sy <- tibble(species=c("Steelhead","Chinook")) |>
   TRUE ~ year(today())
 ))
 
+# make a reference for the last week 
 
+last_week <- yday(today()-days(7))
 
 # Build user interface
 
@@ -269,12 +271,24 @@ ui <- page_navbar(
                 value=textOutput("adult_ytd_dwr"),
                 p(textOutput("adult_ytd_koos")),
                 p(textOutput("adult_ytd_clwh")),
+                showcase = fa("fish-fins")
+                
+                
+              ),
+              
+              
+              value_box(
+                
+                title="New in the last week",
+                value=textOutput("adult_lw_dwr"),
+                p(textOutput("adult_lw_koos")),
+                p(textOutput("adult_lw_clwh")),
                 showcase = bs_icon("graph-up-arrow")
                 
                 
-              )
+                
               
-            ),
+            )),
             
             page_fillable(
               
@@ -660,6 +674,67 @@ server <- function(input,output,session){
     
   })
   
+  # get summary values for number of new adults over the 
+  # various dams in the last week
+  
+  output$adult_lw_dwr <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+      filter(hatchery=="DWOR",
+             spawn_year==sy.dat$spawn_year) |> 
+      filter(yday(dummy_date)>=last_week,
+             yday(dummy_date)<=yday(today())) |> 
+      group_by(hatchery) |> 
+      summarize(new_count=sum(daily_total))
+    
+    req(nrow(dat)>0)
+    
+    str_c("Dworshak: ",dat$new_count)
+    
+  })
+  
+  output$adult_lw_koos <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+      filter(hatchery=="KOOS",
+             spawn_year==sy.dat$spawn_year) |> 
+      filter(yday(dummy_date)>=last_week,
+             yday(dummy_date)<=yday(today())) |> 
+      group_by(hatchery) |> 
+      summarize(new_count=sum(daily_total))
+    
+    req(nrow(dat)>0)
+    
+    str_c("Kooskia: ",dat$new_count)
+    
+  })
+  
+  output$adult_lw_clwh <- renderText({
+    
+    sy.dat <- current_sy |> 
+      filter(species == input$adult_species_filter)
+    
+    dat <- adult_reactive() |> 
+      filter(hatchery=="CLWH",
+             spawn_year==sy.dat$spawn_year) |> 
+      filter(yday(dummy_date)>=last_week,
+             yday(dummy_date)<=yday(today())) |> 
+      group_by(hatchery) |> 
+      summarize(new_count=sum(daily_total))
+    
+    req(nrow(dat)>0)
+    
+    str_c("Clearwater: ",dat$new_count)
+    
+  })
+  
+  
   # reactive plot for adult daily counts
   
   output$lgr_adult_count <- renderPlotly({
@@ -921,8 +996,6 @@ server <- function(input,output,session){
     
   })
 }
-
-
 
 shinyApp(ui, server)
 
