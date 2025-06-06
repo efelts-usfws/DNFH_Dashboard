@@ -808,7 +808,9 @@ server <- function(input,output,session){
                  scales="free_y")+
       theme_bw()+
       labs(x="",y="Cumulative Number Passed",
-           color="Spawn Year")
+           color="Spawn Year")+
+      theme(axis.text.x = element_text(angle=45,hjust=1))+
+      scale_x_date(date_breaks = "1 week", date_labels= "%b %d")
     
     ggplotly(plot1,
              tooltip = c("text"))
