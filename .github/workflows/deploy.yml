@@ -64,6 +64,11 @@ jobs:
           key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }} 
           restore-keys: | 
             ${{ runner.os }}-renv-
+            
+      - name: Manually install R headers
+        run: |
+          sudo apt-get source r-base-core
+          sudo cp r-base*/src/include/*.h /usr/local/include/
       
       - name: Restore R environment
         run: |
