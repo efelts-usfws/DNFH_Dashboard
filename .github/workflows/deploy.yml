@@ -21,7 +21,7 @@ jobs:
           libssl-dev \
           libcurl4-openssl-dev \
           libxml2-dev \
-          libcppunit-dev
+          libcppunit-dev \
           r-base-dev
 
 
