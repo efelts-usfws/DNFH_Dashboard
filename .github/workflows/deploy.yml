@@ -21,8 +21,7 @@ jobs:
           libssl-dev \
           libcurl4-openssl-dev \
           libxml2-dev \
-          libcppunit-dev \
-          r-base-dev
+          libcppunit-dev
 
 
         
@@ -45,15 +44,6 @@ jobs:
       - name: 📦 Set up R
         uses: r-lib/actions/setup-r@v2
         
-      - name: Merge in full R headers
-        run: |
-          # locate R's include directory
-          R_INC=$(Rscript -e "cat(R.home('include'))")
-          echo "R include dir is: $R_INC"
-          # copy all of /usr/share/R/include (installed by r-base-dev) over
-          sudo cp -r /usr/share/R/include/* "$R_INC/"
-
-
       - name: Ensure cache directories exist
         run: |
           mkdir -p ~/.local/share/renv
@@ -69,17 +59,11 @@ jobs:
           restore-keys: | 
             ${{ runner.os }}-renv-
 
-          
-      - name: Check for R.h header
+      - name: Test digest install (debug)
         run: |
-          echo "Checking for R.h..."
-          find / -name R.h 2>/dev/null || echo "R.h not found"
+          Rscript -e 'install.packages("digest")'
       
       - name: Restore R environment
-        env:
-          CFLAGS:   -I/usr/share/R/include
-          CPPFLAGS: -I/usr/share/R/include
-          CXXFLAGS: -I/usr/share/R/include
         run: |
           Rscript -e 'install.packages("renv", repos="https://cloud.r-project.org")'
           Rscript -e 'renv::restore()'
@@ -88,6 +72,15 @@ jobs:
       - name: 🛠️ Run data update script
         run: Rscript ptagis_processing.R
         
+      - name: 🐛 Check for data/ contents
+        run: |
+         echo "=== Does data/ exist? ==="
+         if [ -d "data" ]; then echo "Yes, data/ exists."; else echo "No, data/ does NOT exist."; fi
+         echo ""
+         echo "=== Listing contents of data/ ==="
+         ls -la data || echo "data/ folder is missing or empty"
+
+
 
       - name: 🚀 Deploy to shinyapps.io
         env:
