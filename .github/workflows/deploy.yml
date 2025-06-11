@@ -21,7 +21,11 @@ jobs:
           libssl-dev \
           libcurl4-openssl-dev \
           libxml2-dev \
-          libcppunit-dev
+          libcppunit-dev \
+          cmake \
+          gdal-bin \
+          libx11-dev \
+          pandoc
 
 
         
