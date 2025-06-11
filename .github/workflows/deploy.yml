@@ -44,12 +44,7 @@ jobs:
 
       - name: 📦 Set up R
         uses: r-lib/actions/setup-r@v2
-        
-      - name: Check for R.h header
-        run: |
-          echo "Checking for R.h..."
-          find / -name R.h 2>/dev/null || echo "R.h not found"
-        
+
       - name: Ensure cache directories exist
         run: |
           mkdir -p ~/.local/share/renv
@@ -65,10 +60,20 @@ jobs:
           restore-keys: | 
             ${{ runner.os }}-renv-
             
+      - name: Enable source repositories
+        run: |
+          sudo sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
+          sudo apt-get-update
+            
       - name: Manually install R headers
         run: |
           sudo apt-get source r-base-core
           sudo cp r-base*/src/include/*.h /usr/local/include/
+          
+      - name: Check for R.h header
+        run: |
+          echo "Checking for R.h..."
+          find / -name R.h 2>/dev/null || echo "R.h not found"
       
       - name: Restore R environment
         run: |
