@@ -59,16 +59,7 @@ jobs:
           key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }} 
           restore-keys: | 
             ${{ runner.os }}-renv-
-            
-      - name: Enable source repositories
-        run: |
-          sudo sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list
-          sudo apt-get update
-            
-      - name: Manually install R headers
-        run: |
-          sudo apt-get source r-base-core
-          sudo cp r-base*/src/include/*.h /usr/local/include/
+
           
       - name: Check for R.h header
         run: |
@@ -76,6 +67,10 @@ jobs:
           find / -name R.h 2>/dev/null || echo "R.h not found"
       
       - name: Restore R environment
+        env:
+          CFLAGS:   -I/usr/share/R/include
+          CPPFLAGS: -I/usr/share/R/include
+          CXXFLAGS: -I/usr/share/R/include
         run: |
           Rscript -e 'install.packages("renv", repos="https://cloud.r-project.org")'
           Rscript -e 'renv::restore()'
