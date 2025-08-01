@@ -290,6 +290,17 @@ adult_detections.dat <- vroom(file = "https://api.ptagis.org/reporting/reports/e
     
   ))
 
+
+sthd.search <- adult_detections.dat |> 
+  filter(spawn_year==2026)
+
+
+# make a conditional for which spawn year we're in,
+# because it varies by species
+
+current_sy <- tibble(species=c("Chinook","Steelhead"))
+
+
 lgr_plot.dat <- adult_detections.dat |>
   filter(obs_sitecode %in% c("GRA","LGRLDR"),
          !release_group=="Snake Kelts") |>
@@ -302,7 +313,7 @@ lgr_plot.dat <- adult_detections.dat |>
   group_by(spawn_year,species,hatchery) |> 
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
-         annual_total=sum(daily_total)) |> 
+         annual_total=sum(daily_total))# |> 
   filter(spawn_year==2025) |> 
   mutate(dam="Lower Granite")
 
