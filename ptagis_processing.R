@@ -298,7 +298,17 @@ sthd.search <- adult_detections.dat |>
 # make a conditional for which spawn year we're in,
 # because it varies by species
 
-current_sy <- tibble(species=c("Chinook","Steelhead"))
+today <- today()
+year_today <- year(today)
+month_today <- month(today)
+
+if(month_today >= 7){
+  chn_spawn_year <- year_today
+  sthd_spawn_year <- year_today+1
+} else {
+  chn_spawn_year <- year_today
+  sthd_spawn_year <- year_today
+}
 
 
 lgr_plot.dat <- adult_detections.dat |>
@@ -313,9 +323,11 @@ lgr_plot.dat <- adult_detections.dat |>
   group_by(spawn_year,species,hatchery) |> 
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
-         annual_total=sum(daily_total))# |> 
-  filter(spawn_year==2025) |> 
+         annual_total=sum(daily_total))|> 
+  filter(species=="Chinook" & spawn_year==chn_spawn_year|
+           species=="Steelhead" & spawn_year==sthd_spawn_year) |> 
   mutate(dam="Lower Granite")
+  
 
 # same thing applied to bonneville
 
@@ -333,7 +345,8 @@ bonn_plot.dat <- adult_detections.dat |>
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
          annual_total=sum(daily_total))|> 
-  filter(spawn_year==2025) |> 
+filter(species=="Chinook" & spawn_year==chn_spawn_year|
+         species=="Steelhead" & spawn_year==sthd_spawn_year) |> 
   mutate(dam="Bonneville")
 
 # same thing applied to the Dworshak ladder
@@ -351,7 +364,8 @@ dwor_plot.dat <- adult_detections.dat |>
   arrange(spawn_year,dummy_date,species,hatchery) |> 
   mutate(running_total=cumsum(daily_total),
          annual_total=sum(daily_total)) |> 
-  filter(spawn_year==2025) |> 
+  filter(species=="Chinook" & spawn_year==chn_spawn_year|
+           species=="Steelhead" & spawn_year==sthd_spawn_year) |> 
   mutate(dam="Dworshak Ladder")
 
 adult_bind <- bind_rows(lgr_plot.dat,
