@@ -88,7 +88,13 @@ species_max_dates <- tibble(
                      "1976-09-15","1977-05-01"))
 )
 
+# to append additional years as they come
+
+complete_adult.dat25 <- read_rds("data/complete_adult_plot_25") |> 
+  filter(species=="Steelhead")
+
 complete_adult.dat <- read_rds("data/complete_adult_plot_20_24") |> 
+  bind_rows(complete_adult.dat25) |> 
   left_join(species_max_dates,by=c("species","dam")) |> 
   group_by(species,hatchery,spawn_year,dam) |> 
   mutate(min_date=min(dummy_date,na.rm=TRUE)) |> 
