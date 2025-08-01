@@ -115,18 +115,26 @@ if(yday(today()) >= 106 & yday(today()) <= 212) {
   
 }
 
+month(today()-days(1))
+
+# need to make this robust to spawn year...if current month is July - December it
+# will need to be different than if it's jan-june for steelhead
+
 inseason_max_dates <- tibble(species=c("Chinook","Steelhead")) |> 
   mutate(day_of_year=yday(today()-days(1)),
+         season_month=month(today()-days(1)),
          inseason_max=case_when(
            
-           species=="Steelhead" & day_of_year < 183 ~ as.Date(day_of_year,origin="1977-01-01"),
+           species=="Steelhead" & season_month<7 ~ as.Date(day_of_year,origin="1977-01-01"),
            TRUE ~ as.Date(day_of_year, origin="1976-01-01")
            
            
          )) 
 
 
-inseason_adult.dat <- read_rds("data/adult_plot_inseason") |> 
+
+
+inseason_adult.dat <- read_rds("data/adult_plot_inseason")|> 
   left_join(inseason_max_dates,by="species") |> 
   group_by(species,hatchery,spawn_year,dam) |> 
   mutate(min_date=min(dummy_date,na.rm=TRUE)) |> 
