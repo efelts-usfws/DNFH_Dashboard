@@ -844,6 +844,7 @@ server <- function(input,output,session){
       facet_grid(hatchery~spawn_year,
                  scales="free_y")+
       theme_bw()+
+      scale_x_date(date_labels= "%b")+
       labs(x="",
            y="Daily Adults Passed",
            fill="")
