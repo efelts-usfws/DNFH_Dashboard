@@ -35,6 +35,15 @@ latest_discharge <- water.dat |>
 
 emigration.dat <- read_rds("data/travel") 
 
+# get the latest date a given species is
+# encountered at LGR and Bonneville to
+# set the max on the emigration plot; add a week
+# buffer for the flot
+
+emigration.max <- emigration.dat |> 
+  group_by(species) |> 
+  summarize(LGR_max=max(LGR,na.rm=T)+days(7),
+            BON_max=max(BONN,na.rm=T)+days(7))
 
 
 # summarize current year emigration for comparison plots
@@ -561,6 +570,8 @@ server <- function(input,output,session){
   
   output$lgr_timing_plot <- renderPlotly({
   
+    req(input$species_filter)
+    
     dat <- emigration_reactive() |> 
       filter(!is.na(LGR)) |> 
       mutate(release_group=factor(release_group,
@@ -580,7 +591,9 @@ server <- function(input,output,session){
                 .groups="drop") 
     
     xmin <- min(vline.dat$release_date)-days(2)
-    xmax <- today()+days(3)
+    xmax <- emigration.max |> 
+      filter(species==input$species_filter) |> 
+      pull(LGR_max)
     
     travel.plot <- ggplot()+
       geom_density(data=dat,adjust=0.5,alpha=0.5,
@@ -653,7 +666,10 @@ server <- function(input,output,session){
                 .groups="drop") 
     
     xmin <- min(vline.dat$release_date)-days(2)
-    xmax <- today()+days(3)
+    xmax <- emigration.max |> 
+      filter(species==input$species_filter) |> 
+      pull(BON_max)
+    
     
     travel.plot <- ggplot()+
       geom_density(data=dat,adjust=0.5,alpha=0.5,
