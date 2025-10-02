@@ -462,6 +462,64 @@ ui <- page_navbar(
     
   ),
   
+  nav_panel("Adult Window Counts",
+            
+            layout_columns(
+              
+              value_box(
+                
+                title="Number Counted, Current Year-to-date",
+                value=textOutput("window_ytd"),
+                showcase = fa("fish-fins")
+                
+                
+              ),
+              
+              
+              value_box(
+                
+                title="New in the last week",
+                value=textOutput("window_lw"),
+                showcase = bs_icon("graph-up-arrow")
+                
+                
+                
+                
+              )),
+            
+            page_fillable(
+              
+              layout_columns(
+                
+                col_widths=c(6,6),
+                
+                
+                card(
+                  
+                  card_header("Daily Passage"),
+                  plotlyOutput("window_count"),
+                  full_screen = TRUE
+                  
+                ),
+                
+                
+                card(
+                  
+                  card_header("Cumulative Counts"),
+                  plotlyOutput("window_cum"),
+                  full_screen = TRUE
+                  
+                )
+                
+                
+              )
+              
+              
+            )
+            
+            
+  ),
+  
   nav_panel("Emigration Comparison",
             
             page_fillable(
