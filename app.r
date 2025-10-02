@@ -197,7 +197,46 @@ if(yday(today()) >= 106 & yday(today()) <= 212) {
   
 }
 
+# bring in Window count data
 
+window.dat <- read_rds("data/window_daily") |> 
+  filter(!(species=="Steelhead"&origin=="Wild"),
+         !life_stage=="Jack")
+
+window.test <- window.dat |> 
+  filter(spawn_year>=2016,
+         spawn_year<=2026,
+         species=="Coho",
+         dam=="Lower Granite")
+
+window.sum <- window.test |> 
+  ungroup() |> 
+  slice(which.max(date))
+
+window.count <- window.test |> 
+  ungroup() |> 
+  mutate(max_sy=max(spawn_year)) |> 
+  filter(spawn_year==max_sy)
+
+window.lw <- window.test |> 
+  filter(date>=today()-days(7))
+
+window_plot.limits <- tribble(
+  ~dam,            ~species,         ~min_date,        ~max_date,
+  "Bonneville",    "Coho",           as.Date("1976-08-01"), as.Date("1976-12-31"),
+  "Lower Granite", "Coho",           as.Date("1976-09-01"), as.Date("1976-12-31"),
+  "Bonneville",    "Spring Chinook", as.Date("1976-03-14"), as.Date("1976-06-01"),
+  "Lower Granite", "Spring Chinook", as.Date("1976-04-14"), as.Date("1976-06-17"),
+  "Bonneville", "Summer Chinook", as.Date("1976-05-31"), as.Date("1976-08-02"),
+  "Lower Granite", "Summer Chinook", as.Date("1976-06-16"), as.Date("1976-08-17"),
+  "Bonneville", "Fall Chinook", as.Date("1976-08-01"), as.Date("1976-11-15"),
+  "Lower Granite", "Fall Chinook", as.Date("1976-08-16"), as.Date("1976-12-15"),
+  "Bonneville",    "Sockeye",           as.Date("1976-06-01"), as.Date("1976-08-10"),
+  "Lower Granite", "Sockeye",           as.Date("1976-06-15"), as.Date("1976-10-15"),
+  "Bonneville",    "Steelhead",           as.Date("1976-07-01"), as.Date("1976-12-01"),
+  "Lower Granite", "Steelhead",           as.Date("1976-07-01"), as.Date("1977-06-01"),
+  
+)
 
 # Build user interface
 
@@ -229,7 +268,7 @@ ui <- page_navbar(
                     )
                     )),
                   
-                  conditionalPanel("input.nav===`Current Year Adults`",
+                  conditionalPanel("input.nav===`Current Year Adults (PIT)`",
                                    
                                    accordion(
                                      
@@ -256,6 +295,40 @@ ui <- page_navbar(
                                                    choices=c("Lower Granite",
                                                              "Bonneville",
                                                              "Dworshak Ladder"),
+                                                   selected = "Lower Granite")
+                                       
+                                       
+                                     )
+                                   )),
+                  
+                  conditionalPanel("input.nav===`Adult Window Counts`",
+                                   
+                                   accordion(
+                                     
+                                     accordion_panel(
+                                       
+                                       "Inputs",
+                                       
+                                       sliderInput(inputId = "window_years",
+                                                   label="Choose start year for  comparing Spawn Years",
+                                                   min=min(window.dat$spawn_year),
+                                                   max=max(window.dat$spawn_year)-1,
+                                                   value=max(window.dat$spawn_year)-10,
+                                                   step=1,sep=""),
+                                       
+                                       selectInput(inputId = "window_species_filter",
+                                                   label="Choose a species",
+                                                   choices=c("Spring Chinook",
+                                                             "Steelhead",
+                                                             "Coho","Sockeye",
+                                                             "Summer Chinook",
+                                                             "Fall Chinook"),
+                                                   selected="Steelhead"),
+                                       
+                                       selectInput(inputId = "window_location",
+                                                   "Choose a location of window counts",
+                                                   choices=c("Lower Granite",
+                                                             "Bonneville"),
                                                    selected = "Lower Granite")
                                        
                                        
@@ -361,7 +434,7 @@ ui <- page_navbar(
             
             ),
   
-  nav_panel("Current Year Adults",
+  nav_panel("Current Year Adults (PIT)",
             
             layout_columns(
               
@@ -421,6 +494,64 @@ ui <- page_navbar(
             )
     
     
+  ),
+  
+  nav_panel("Adult Window Counts",
+            
+            layout_columns(
+              
+              value_box(
+                
+                title="Number Counted, Current Year-to-date",
+                value=textOutput("window_ytd"),
+                showcase = fa("fish-fins")
+                
+                
+              ),
+              
+              
+              value_box(
+                
+                title="New in the last week",
+                value=textOutput("window_lw"),
+                showcase = bs_icon("graph-up-arrow")
+                
+                
+                
+                
+              )),
+            
+            page_fillable(
+              
+              layout_columns(
+                
+                col_widths=c(6,6),
+                
+                
+                card(
+                  
+                  card_header("Daily Passage"),
+                  plotlyOutput("window_count"),
+                  full_screen = TRUE
+                  
+                ),
+                
+                
+                card(
+                  
+                  card_header("Cumulative Counts"),
+                  plotlyOutput("window_cum"),
+                  full_screen = TRUE
+                  
+                )
+                
+                
+              )
+              
+              
+            )
+            
+            
   ),
   
   nav_panel("Emigration Comparison",
@@ -905,6 +1036,119 @@ server <- function(input,output,session){
     
     ggplotly(plot1,
              tooltip = c("text"))
+    
+  })
+  
+  # reactive window count data
+  
+  window_reactive <- reactive({
+    
+    dat <- window.dat |> 
+      filter(spawn_year>=input$window_years,
+             spawn_year<=max(window.dat$spawn_year),
+             species==input$window_species_filter,
+             dam==input$window_location)
+    
+    
+  })
+
+  # make output for value box of year-to_date
+  # for selected window count
+  
+  output$window_ytd <- renderText({
+    
+    dat <- window_reactive() 
+    
+    summary <- dat |> 
+      ungroup() |> 
+      slice(which.max(date))
+    
+    str_c(summary$dam,": ",comma(summary$running_total),sep="")
+    
+  })
+  
+  # make output for value box of last week for
+  # selected window count
+  
+  output$window_lw <- renderText({
+    
+    dat <- window_reactive()
+    
+    summary <- dat |> 
+      filter(date>=today()-days(7)) |> 
+      group_by(dam) |> 
+      summarize(lw_total=sum(count))
+    
+    str_c(summary$dam,": ",comma(summary$lw_total),sep="")
+    
+    
+    
+  })
+  
+  # reactive plot for daily window counts
+  
+  output$window_count <- renderPlotly({
+    
+
+    dat <- window_reactive()|> 
+      ungroup() |> 
+      mutate(max_sy=max(spawn_year)) |> 
+      filter(spawn_year==max_sy) |> 
+      left_join(window_plot.limits,by=c("dam",
+                                        "species")) |> 
+      filter(dummy_date> min_date,
+             dummy_date < max_date) 
+    
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=dummy_date,y=count))+
+      geom_col(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                            "<br>",
+                            "Number Passed:",comma(count),
+                            sep=" ")),
+               color="gray",
+               fill="black",show.legend = F)+
+      theme_bw()+
+      scale_x_date(date_labels="%b",
+                   date_breaks = "1 month")+
+      labs(x="",
+           y="Daily Window Count")
+    
+    ggplotly(plot1,
+             tooltip = c("text"))
+    
+    
+  })
+  
+  # reactive plot for cumulative window counts
+  
+  output$window_cum <- renderPlotly({
+    
+    dat <- window_reactive() |> 
+      left_join(window_plot.limits,by=c("dam",
+                                        "species")) |> 
+      filter(dummy_date> min_date,
+             dummy_date < max_date) 
+    
+    plot1 <- dat |> 
+      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year,
+                 color=as.factor(yr_category)))+
+      geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                               "<br>",
+                               "Spawn Year:",spawn_year,
+                               "<br>",
+                               "Number Passed:",comma(running_total),
+                               sep=" ")))+
+      scale_color_manual(values=c("steelblue","gray70"))+
+      theme_bw()+
+      labs(x="",y="Cumulative Number Counted",
+           color="Spawn Year")+
+      theme(axis.text.x = element_text(angle=45,hjust=1))+
+      scale_x_date(date_breaks = "1 week", date_labels= "%b %d")
+    
+    ggplotly(plot1,
+             tooltip = c("text"))
+      
     
   })
   

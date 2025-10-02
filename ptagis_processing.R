@@ -465,4 +465,95 @@ water.dat <- daily.map |>
 saveRDS(water.dat,
         "data/water")
 
+# process window count data from DART
 
+bonneville_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=BON&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
+
+lgr_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=LWG&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
+
+
+current.links <- list(bonneville_link,lgr_link)
+
+today <- Sys.Date()
+july_first <- as.Date(paste0(lubridate::year(today), "-07-01"))
+
+current.dat <- map(current.links,read_csv) |> 
+  bind_rows() |> 
+  filter(!is.na(Date)) |> 
+  mutate(year=year(Date)) |> 
+  select(dam=Project,date=Date,year,
+         run_type=`Chinook Run`,temp=TempC,
+         Chinook=Chin,Jack_Chinook=JChin,
+         Steelhead=Stlhd,Wild_Steelhead=WStlhd,
+         Sockeye=Sock,Coho,Jack_Coho=JCoho,
+         Shad,Lamprey=Lmpry,`Bull Trout`=BTrout,
+         Chum,Pink
+  ) |> 
+  pivot_longer(cols=Chinook:Pink,
+               names_to = "species",
+               values_to = "count") |> 
+  mutate(life_stage=case_when(
+    species  %in% c("Jack_Chinook","Jack_Coho") ~ "Jack",
+    species %in% c("Chinook","Coho") ~ "Adult",
+    TRUE ~ "All"
+  ),
+  ,
+  origin=case_when(
+    species=="Wild_Steelhead" ~ "Wild",
+    TRUE ~ "All",
+  ),
+  species=case_when(
+    species %in% c("Wild_Steelhead","Jack_Chinook","Jack_Coho") ~ word(species,2,sep="_"),
+    TRUE ~ species
+  ),
+  run_type=case_when(
+    run_type == "Sp" ~ "Spring",
+    run_type=="Su" ~ "Summer",
+    run_type=="Fa" ~ "Fall",
+    TRUE ~ NA
+  ),
+  species=case_when(
+    species=="Chinook" ~ str_c(run_type,species,sep=" "),
+    TRUE ~ species
+  ),
+  july_first=make_date(year(date),7,1),
+  dummy_date=case_when(
+    species=="Steelhead" & date < july_first ~as.Date(format(date,"1977-%m-%d")),
+    TRUE ~ as.Date(format(date,"1976-%m-%d"))),
+  spawn_year=case_when(
+    species=="Steelhead" & date >=  july_first ~ year(date)+1,
+    TRUE ~ year(date)
+  )) |> 
+  arrange(spawn_year,dam,dummy_date,species,life_stage,
+          origin) |> 
+  group_by(spawn_year,dam,species,life_stage,origin) |> 
+  mutate(count=if_else(is.na(count),0,count),
+         running_total=cumsum(count),
+         annual_total=sum(count)) |> 
+  mutate(yr_category="Current") %>%
+  {
+    if (today >=  july_first){
+      filter(., !(species=="Steelhead"& date < july_first))
+    } else .
+  }
+
+sthd.test <- current.dat |> 
+  filter(species=="Steelhead")
+
+# read in completed years so the current year can be bound to it
+
+completed.dat <- read_rds("data/window_counts_complete") |> 
+  mutate(yr_category="Previous")
+
+sthd.test2 <- completed.dat |> 
+  filter(species=="Steelhead",
+         year==2023,
+         dam=="Lower Granite")
+
+all.dat_bind <- current.dat |> 
+  bind_rows(completed.dat)
+
+# save the combined data as RDS
+
+saveRDS(all.dat_bind,
+        "data/window_daily")
