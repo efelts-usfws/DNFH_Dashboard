@@ -499,7 +499,7 @@ current.dat <- map(current.links,read_csv) |>
   ),
   ,
   origin=case_when(
-    species=="Wild_steelhead" ~ "Wild",
+    species=="Wild_Steelhead" ~ "Wild",
     TRUE ~ "All",
   ),
   species=case_when(
@@ -516,13 +516,13 @@ current.dat <- map(current.links,read_csv) |>
     species=="Chinook" ~ str_c(run_type,species,sep=" "),
     TRUE ~ species
   ),
-  day_of_year=yday(date),
+  july_first=make_date(year(date),7,1),
   dummy_date=case_when(
-    species=="Steelhead" & day_of_year < 183 ~as.Date(day_of_year,origin="1977-01-01"),
-    TRUE ~ as.Date(day_of_year-1,origin="1976-01-01")),
+    species=="Steelhead" & date < july_first ~as.Date(format(date,"1977-%m-%d")),
+    TRUE ~ as.Date(format(date,"1976-%m-%d"))),
   spawn_year=case_when(
-    species=="Steelhead" & day_of_year>=183 ~ (year+1),
-    TRUE ~ year
+    species=="Steelhead" & date >=  july_first ~ year(date)+1,
+    TRUE ~ year(date)
   )) |> 
   arrange(spawn_year,dam,dummy_date,species,life_stage,
           origin) |> 
@@ -537,10 +537,18 @@ current.dat <- map(current.links,read_csv) |>
     } else .
   }
 
+sthd.test <- current.dat |> 
+  filter(species=="Steelhead")
+
 # read in completed years so the current year can be bound to it
 
 completed.dat <- read_rds("data/window_counts_complete") |> 
   mutate(yr_category="Previous")
+
+sthd.test2 <- completed.dat |> 
+  filter(species=="Steelhead",
+         year==2023,
+         dam=="Lower Granite")
 
 all.dat_bind <- current.dat |> 
   bind_rows(completed.dat)
