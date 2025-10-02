@@ -197,6 +197,10 @@ if(yday(today()) >= 106 & yday(today()) <= 212) {
   
 }
 
+# bring in Window count data
+
+window.dat <- read_rds("data/window_daily")
+
 
 
 # Build user interface
@@ -229,7 +233,7 @@ ui <- page_navbar(
                     )
                     )),
                   
-                  conditionalPanel("input.nav===`Current Year Adults`",
+                  conditionalPanel("input.nav===`Current Year Adults (PIT)`",
                                    
                                    accordion(
                                      
@@ -256,6 +260,41 @@ ui <- page_navbar(
                                                    choices=c("Lower Granite",
                                                              "Bonneville",
                                                              "Dworshak Ladder"),
+                                                   selected = "Lower Granite")
+                                       
+                                       
+                                     )
+                                   )),
+                  
+                  conditionalPanel("input.nav===`Adult Window Counts`",
+                                   
+                                   accordion(
+                                     
+                                     accordion_panel(
+                                       
+                                       "Inputs",
+                                       
+                                       sliderInput(inputId = "window_years",
+                                                   label="Choose a range of Spawn Years",
+                                                   min=min(window.dat$spawn_year),
+                                                   max=max(window.dat$spawn_year),
+                                                   value=c(max(window.dat$spawn_year)-years(10),
+                                                           max(window.dat$spawn_year)),
+                                                   sep=""),
+                                       
+                                       selectInput(inputId = "window_species_filter",
+                                                   label="Choose a species",
+                                                   choices=c("Spring Chinook",
+                                                             "Steelhead",
+                                                             "Coho","Sockeye",
+                                                             "Summer Chinook",
+                                                             "Fall Chinook"),
+                                                   selected="Steelhead"),
+                                       
+                                       selectInput(inputId = "window_location",
+                                                   "Choose a location of window counts",
+                                                   choices=c("Lower Granite",
+                                                             "Bonneville"),
                                                    selected = "Lower Granite")
                                        
                                        
@@ -361,7 +400,7 @@ ui <- page_navbar(
             
             ),
   
-  nav_panel("Current Year Adults",
+  nav_panel("Current Year Adults (PIT)",
             
             layout_columns(
               
