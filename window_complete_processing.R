@@ -6,6 +6,10 @@ library(purrr)
 library(stringr)
 library(tidyr)
 library(lubridate)
+library(conflicted)
+
+conflicts_prefer(readr::cols,
+                 readr::col_guess)
 
 completed.files <- list.files("historical/window_complete",pattern="\\.csv$",full.names = T)
 
@@ -50,7 +54,7 @@ completed.dat <- map_dfr(completed.files, read_and_fix) |>
     TRUE ~ "All"
   ),
   origin=case_when(
-    species=="Wild_steelhead" ~ "Wild",
+    species=="Wild_Steelhead" ~ "Wild",
     TRUE ~ "All",
   ),
   species=case_when(
@@ -67,15 +71,14 @@ completed.dat <- map_dfr(completed.files, read_and_fix) |>
     species=="Chinook" ~ str_c(run_type,species,sep=" "),
     TRUE ~ species
   ),
-  day_of_year=yday(date),
+  july_first=make_date(year(date),7,1),
   dummy_date=case_when(
-    species=="Steelhead" & day_of_year < 183 ~as.Date(day_of_year,origin="1977-01-01"),
-    TRUE ~ as.Date(day_of_year-1,origin="1976-01-01")),
+    species=="Steelhead" & date < july_first ~as.Date(format(date,"1977-%m-%d")),
+    TRUE ~ as.Date(format(date,"1976-%m-%d"))),
   spawn_year=case_when(
-    species=="Steelhead" & day_of_year>=183 ~ (year+1),
-    TRUE ~ year
-  )
-  ) |> 
+    species=="Steelhead" & date >=  july_first ~ year(date)+1,
+    TRUE ~ year(date)
+  )) |> 
   arrange(spawn_year,dam,dummy_date,species,life_stage,
           origin) |> 
   group_by(spawn_year,dam,species,life_stage,origin) |> 
@@ -86,6 +89,11 @@ completed.dat <- map_dfr(completed.files, read_and_fix) |>
     year(date) < year(today)|
       (species ==  "Steelhead" & year(date) == year(today)&date<july_first)
   )
+
+test.steel <- completed.dat |> 
+  filter(year==2024,
+         species=="Steelhead",
+         dam=="Lower Granite")
 
 
 # save the completed data as an RDS file
