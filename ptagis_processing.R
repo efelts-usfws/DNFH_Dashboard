@@ -486,7 +486,8 @@ current.dat <- map(current.links,read_csv) |>
          Chinook=Chin,Jack_Chinook=JChin,
          Steelhead=Stlhd,Wild_Steelhead=WStlhd,
          Sockeye=Sock,Coho,Jack_Coho=JCoho,
-         Shad,Lamprey=Lmpry,`Bull Trout`=BTrout,
+         Shad,Lamprey_Day=LmpryDay,Lamprey_Night=LmpryNight,
+         `Bull Trout`=BTrout,
          Chum,Pink
   ) |> 
   pivot_longer(cols=Chinook:Pink,
