@@ -536,21 +536,14 @@ current.dat <- map(current.links,read_csv) |>
   group_by(spawn_year,dam,species,life_stage,origin) |> 
   mutate(count=if_else(is.na(count),0,count),
          running_total=cumsum(count),
-         annual_total=sum(count)) |> 
-  mutate(yr_category="Current") %>%
-  {
-    if (today >=  july_first){
-      filter(., !(species=="Steelhead"& date < july_first))
-    } else .
-  }
+         annual_total=sum(count)) 
 
 sthd.test <- current.dat |> 
   filter(species=="Steelhead")
 
 # read in completed years so the current year can be bound to it
 
-completed.dat <- read_rds("data/window_counts_complete") |> 
-  mutate(yr_category="Previous")
+completed.dat <- read_rds("data/window_counts_complete") 
 
 sthd.test2 <- completed.dat |> 
   filter(species=="Steelhead",
