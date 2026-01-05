@@ -553,7 +553,9 @@ current.dat <- map(current.links,read_csv) |>
          running_total=cumsum(count),
          annual_total=sum(count)) |> 
   left_join(current_sy,by="species") |> 
-  filter(spawn_year.x==spawn_year.y)
+  filter(spawn_year.x==spawn_year.y) |> 
+  rename(spawn_year=spawn_year.x) |> 
+  select(-spawn_year.y)
 
 # read in completed years so the current year can be bound to it
 
