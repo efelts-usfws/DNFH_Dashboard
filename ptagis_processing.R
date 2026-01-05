@@ -469,10 +469,16 @@ saveRDS(water.dat,
 
 bonneville_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=BON&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
 
+# need to add in a 2026 link but keep 2025 for STHD spawn year stuff
+
+bonneville_link2 <- "https://www.cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2026&proj=BON&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2026&eyear=2026"
+
 lgr_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=LWG&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
 
+lgr_link2 <- "https://www.cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2026&proj=LWG&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2026&eyear=2026"
 
-current.links <- list(bonneville_link,lgr_link)
+
+current.links <- list(bonneville_link,lgr_link,bonneville_link2,lgr_link2)
 
 today <- Sys.Date()
 july_first <- as.Date(paste0(lubridate::year(today), "-07-01"))
