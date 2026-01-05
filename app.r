@@ -203,6 +203,9 @@ window.dat <- read_rds("data/window_daily") |>
   filter(!(species=="Steelhead"&origin=="Wild"),
          !life_stage=="Jack")
 
+
+
+
 window.test <- window.dat |> 
   filter(spawn_year>=2016,
          spawn_year<=2026,
