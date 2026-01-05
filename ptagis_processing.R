@@ -483,6 +483,21 @@ current.links <- list(bonneville_link,lgr_link,bonneville_link2,lgr_link2)
 today <- Sys.Date()
 july_first <- as.Date(paste0(lubridate::year(today), "-07-01"))
 
+
+# make a reference value for which SY we're in 
+# depending on species
+
+current_sy <- tibble(species=c("Steelhead","Chinook","Bull Trout",
+                               "Chum","Coho","Lamprey_Day","Lamprey_Night",
+                               "Pink","Shad","Sockeye","Spring Chinook",
+                               "Summer Chinook","Fall Chinook")) |> 
+  mutate(spawn_year=case_when(
+    
+    species=="Steelhead" & yday(today()) >= 183 ~ year(today())+1,
+    
+    TRUE ~ year(today())
+  ))
+
 current.dat <- map(current.links,read_csv) |> 
   bind_rows() |> 
   filter(!is.na(Date)) |> 
@@ -536,19 +551,13 @@ current.dat <- map(current.links,read_csv) |>
   group_by(spawn_year,dam,species,life_stage,origin) |> 
   mutate(count=if_else(is.na(count),0,count),
          running_total=cumsum(count),
-         annual_total=sum(count)) 
-
-sthd.test <- current.dat |> 
-  filter(species=="Steelhead")
+         annual_total=sum(count)) |> 
+  left_join(current_sy,by="species") |> 
+  filter(spawn_year.x==spawn_year.y)
 
 # read in completed years so the current year can be bound to it
 
 completed.dat <- read_rds("data/window_counts_complete") 
-
-sthd.test2 <- completed.dat |> 
-  filter(species=="Steelhead",
-         year==2023,
-         dam=="Lower Granite")
 
 all.dat_bind <- current.dat |> 
   bind_rows(completed.dat)
