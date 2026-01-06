@@ -203,6 +203,12 @@ window.dat <- read_rds("data/window_daily") |>
   filter(!(species=="Steelhead"&origin=="Wild"),
          !life_stage=="Jack")
 
+sthd.test2 <- window.dat |> 
+  filter(species=="Steelhead",
+         year==2025,
+         dam=="Lower Granite")
+
+
 window.test <- window.dat |> 
   filter(spawn_year>=2016,
          spawn_year<=2026,
@@ -1058,6 +1064,7 @@ server <- function(input,output,session){
   output$window_ytd <- renderText({
     
     dat <- window_reactive() 
+      
     
     summary <- dat |> 
       ungroup() |> 
@@ -1128,14 +1135,21 @@ server <- function(input,output,session){
       left_join(window_plot.limits,by=c("dam",
                                         "species")) |> 
       filter(dummy_date> min_date,
-             dummy_date < max_date) 
+             dummy_date < max_date) |> 
+      left_join(current_sy,by="species") |> 
+      mutate(yr_category=case_when(
+        
+        spawn_year.x==spawn_year.y ~ "Current",
+        TRUE ~ "Previous"
+        
+      ))
     
     plot1 <- dat |> 
-      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year,
+      ggplot(aes(x=dummy_date,y=running_total,group=spawn_year.x,
                  color=as.factor(yr_category)))+
       geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
                                "<br>",
-                               "Spawn Year:",spawn_year,
+                               "Spawn Year:",spawn_year.x,
                                "<br>",
                                "Number Passed:",comma(running_total),
                                sep=" ")))+
@@ -1362,3 +1376,48 @@ server <- function(input,output,session){
 
 shinyApp(ui, server)
 
+
+
+test_dat1 <- window.dat |> 
+  filter(spawn_year>=2016,
+         spawn_year<=max(window.dat$spawn_year),
+         species=="Steelhead",
+         dam=="Lower Granite")
+
+
+test_dat2 <- test_dat1 |> 
+  left_join(window_plot.limits,by=c("dam",
+                                    "species"))|> 
+  filter(dummy_date> min_date,
+         dummy_date < max_date) |> 
+  left_join(current_sy,by="species") |> 
+  mutate(yr_category=case_when(
+    
+    spawn_year.x==spawn_year.y ~ "Current",
+    TRUE ~ "Previous"
+    
+  ))
+
+# pull out 2025 as that seems to be the issue
+
+test25 <- test_dat2 |> 
+  filter(spawn_year.x==2025)
+
+test_plot1 <- test_dat2 |> 
+  ggplot(aes(x=dummy_date,y=running_total,group=spawn_year.x,
+             color=as.factor(yr_category)))+
+  geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
+                           "<br>",
+                           "Spawn Year:",spawn_year.x,
+                           "<br>",
+                           "Number Passed:",comma(running_total),
+                           sep=" ")))+
+  scale_color_manual(values=c("steelblue","gray70"))+
+  theme_bw()+
+  labs(x="",y="Cumulative Number Counted",
+       color="Spawn Year")+
+  theme(axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_date(date_breaks = "1 week", date_labels= "%b %d")
+
+ggplotly(test_plot1,
+         tooltip = c("text"))

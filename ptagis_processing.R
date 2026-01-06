@@ -469,13 +469,34 @@ saveRDS(water.dat,
 
 bonneville_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=BON&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
 
+# need to add in a 2026 link but keep 2025 for STHD spawn year stuff
+
+bonneville_link2 <- "https://www.cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2026&proj=BON&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2026&eyear=2026"
+
 lgr_link <- "https://cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2025&proj=LWG&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2025&eyear=2025"
 
+lgr_link2 <- "https://www.cbr.washington.edu/dart/cs/php/rpt/adult_daily.php?sc=1&outputFormat=csv&year=2026&proj=LWG&span=no&startdate=1%2F1&enddate=12%2F31&run=&syear=2026&eyear=2026"
 
-current.links <- list(bonneville_link,lgr_link)
+
+current.links <- list(bonneville_link,lgr_link,bonneville_link2,lgr_link2)
 
 today <- Sys.Date()
 july_first <- as.Date(paste0(lubridate::year(today), "-07-01"))
+
+
+# make a reference value for which SY we're in 
+# depending on species
+
+current_sy <- tibble(species=c("Steelhead","Chinook","Bull Trout",
+                               "Chum","Coho","Lamprey_Day","Lamprey_Night",
+                               "Pink","Shad","Sockeye","Spring Chinook",
+                               "Summer Chinook","Fall Chinook")) |> 
+  mutate(spawn_year=case_when(
+    
+    species=="Steelhead" & yday(today()) >= 183 ~ year(today())+1,
+    
+    TRUE ~ year(today())
+  ))
 
 current.dat <- map(current.links,read_csv) |> 
   bind_rows() |> 
@@ -531,25 +552,14 @@ current.dat <- map(current.links,read_csv) |>
   mutate(count=if_else(is.na(count),0,count),
          running_total=cumsum(count),
          annual_total=sum(count)) |> 
-  mutate(yr_category="Current") %>%
-  {
-    if (today >=  july_first){
-      filter(., !(species=="Steelhead"& date < july_first))
-    } else .
-  }
-
-sthd.test <- current.dat |> 
-  filter(species=="Steelhead")
+  left_join(current_sy,by="species") |> 
+  filter(spawn_year.x==spawn_year.y) |> 
+  rename(spawn_year=spawn_year.x) |> 
+  select(-spawn_year.y)
 
 # read in completed years so the current year can be bound to it
 
-completed.dat <- read_rds("data/window_counts_complete") |> 
-  mutate(yr_category="Previous")
-
-sthd.test2 <- completed.dat |> 
-  filter(species=="Steelhead",
-         year==2023,
-         dam=="Lower Granite")
+completed.dat <- read_rds("data/window_counts_complete") 
 
 all.dat_bind <- current.dat |> 
   bind_rows(completed.dat)
