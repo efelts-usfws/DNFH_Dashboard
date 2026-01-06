@@ -458,8 +458,10 @@ daily.map <- map_dfr(water.sites$sitenumber,
 
 current_year <- year(today())
 
+prev_year <- today()-years(1)
+
 water.dat <- daily.map |> 
-   filter(year==current_year) |> 
+   filter(date>=prev_year) |> 
    mutate(group=sitenumber)
 
 saveRDS(water.dat,
