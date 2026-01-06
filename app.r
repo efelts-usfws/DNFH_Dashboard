@@ -350,13 +350,7 @@ ui <- page_navbar(
                       
                       "Inputs",
                       
-                      
-                      sliderInput(inputId="user_dates",
-                                  label="Choose a Date Range for water Data",
-                                  min=min_date,
-                                  max=today(),
-                                  value=c(min_range_date,today())),
-                      
+ 
                       selectInput(inputId = "water_site",
                                   label="Choose a gaging station",
                                   choices=sort(unique(water.dat$name)),
@@ -1313,17 +1307,13 @@ server <- function(input,output,session){
     
     dat <- water_reactive()
     
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
     flow.plot <- dat %>% 
       mutate(date=as_date(date)) %>% 
       ggplot(aes(x=date,y=mean_discharge,group=group))+
       geom_line(aes(text=str_c(" Date:",date,
                                "<br>","Mean Discharge (cfs): ",comma(mean_discharge),
                                sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+      scale_x_date(date_breaks = "1 month", date_labels="%b %Y")+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
       labs(x="",y="Mean Daily Discharge")
@@ -1343,10 +1333,7 @@ server <- function(input,output,session){
   tempplot_reactive <- reactive({
     
     dat <- water_reactive()
-    
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
+
     temp.plot <- dat %>% 
       mutate(date=as_date(date),
              mean_temp_f=(mean_temp*(9/5))+32) %>% 
@@ -1355,8 +1342,7 @@ server <- function(input,output,session){
                                "<br>","Mean Temp (C): ",mean_temp,
                                "<br>","Mean Temp (F):",round(mean_temp_f,1),
                                sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+       scale_x_date(date_breaks = "1 month", date_labels="%b %Y")+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
       labs(x="",y="Mean Daily Temperature")
