@@ -350,13 +350,7 @@ ui <- page_navbar(
                       
                       "Inputs",
                       
-                      
-                      sliderInput(inputId="user_dates",
-                                  label="Choose a Date Range for water Data",
-                                  min=min_date,
-                                  max=today(),
-                                  value=c(min_range_date,today())),
-                      
+ 
                       selectInput(inputId = "water_site",
                                   label="Choose a gaging station",
                                   choices=sort(unique(water.dat$name)),
@@ -1313,17 +1307,13 @@ server <- function(input,output,session){
     
     dat <- water_reactive()
     
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
     flow.plot <- dat %>% 
       mutate(date=as_date(date)) %>% 
       ggplot(aes(x=date,y=mean_discharge,group=group))+
       geom_line(aes(text=str_c(" Date:",date,
                                "<br>","Mean Discharge (cfs): ",comma(mean_discharge),
                                sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+      scale_x_date(date_breaks = "1 month", date_labels="%b %Y")+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
       labs(x="",y="Mean Daily Discharge")
@@ -1343,10 +1333,7 @@ server <- function(input,output,session){
   tempplot_reactive <- reactive({
     
     dat <- water_reactive()
-    
-    plot_min <- min(input$user_dates)
-    plot_max <- max(input$user_dates)
-    
+
     temp.plot <- dat %>% 
       mutate(date=as_date(date),
              mean_temp_f=(mean_temp*(9/5))+32) %>% 
@@ -1355,8 +1342,7 @@ server <- function(input,output,session){
                                "<br>","Mean Temp (C): ",mean_temp,
                                "<br>","Mean Temp (F):",round(mean_temp_f,1),
                                sep=" ")))+
-      scale_x_date(date_breaks = "1 week", date_labels="%b %d",
-                   limits=c(as.Date(plot_min),as.Date(plot_max)))+
+       scale_x_date(date_breaks = "1 month", date_labels="%b %Y")+
       theme_bw()+
       theme(axis.text.x=element_text(angle=45,hjust=1))+
       labs(x="",y="Mean Daily Temperature")
@@ -1376,48 +1362,3 @@ server <- function(input,output,session){
 
 shinyApp(ui, server)
 
-
-
-test_dat1 <- window.dat |> 
-  filter(spawn_year>=2016,
-         spawn_year<=max(window.dat$spawn_year),
-         species=="Steelhead",
-         dam=="Lower Granite")
-
-
-test_dat2 <- test_dat1 |> 
-  left_join(window_plot.limits,by=c("dam",
-                                    "species"))|> 
-  filter(dummy_date> min_date,
-         dummy_date < max_date) |> 
-  left_join(current_sy,by="species") |> 
-  mutate(yr_category=case_when(
-    
-    spawn_year.x==spawn_year.y ~ "Current",
-    TRUE ~ "Previous"
-    
-  ))
-
-# pull out 2025 as that seems to be the issue
-
-test25 <- test_dat2 |> 
-  filter(spawn_year.x==2025)
-
-test_plot1 <- test_dat2 |> 
-  ggplot(aes(x=dummy_date,y=running_total,group=spawn_year.x,
-             color=as.factor(yr_category)))+
-  geom_line(aes(text=str_c(" Date:", format(dummy_date, "%B %d"),
-                           "<br>",
-                           "Spawn Year:",spawn_year.x,
-                           "<br>",
-                           "Number Passed:",comma(running_total),
-                           sep=" ")))+
-  scale_color_manual(values=c("steelblue","gray70"))+
-  theme_bw()+
-  labs(x="",y="Cumulative Number Counted",
-       color="Spawn Year")+
-  theme(axis.text.x = element_text(angle=45,hjust=1))+
-  scale_x_date(date_breaks = "1 week", date_labels= "%b %d")
-
-ggplotly(test_plot1,
-         tooltip = c("text"))
