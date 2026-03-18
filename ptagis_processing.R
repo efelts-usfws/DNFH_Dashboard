@@ -9,6 +9,7 @@ library(readr)
 library(tidyr)
 library(forcats)
 library(purrr)
+library(sf)
 
 conflicts_prefer(vroom::locale,
                  dplyr::filter)
@@ -426,7 +427,8 @@ water.sites <- tibble(name=c("Clearwater (Peck)","Clearwater (Orofino)",
                       sitenumber=c("13341050","13340000",
                                    "13339500","13338500",
                                    "13337095","13336500",
-                                   "13337000"))
+                                   "13337000")) %>% 
+  mutate(newsitenumbers=str_c("USGS",sitenumber,sep="-"))
 
 # temp is coded as 00010, discharge is 00060
 
@@ -439,20 +441,39 @@ today.text <- as.character(today(tz="America/Los_Angeles"))
 
 # read in site info for all the sites
 
+# 
+# 
+# daily.map <- map_dfr(water.sites$sitenumber, 
+#                      ~ readNWISdv(siteNumbers=.x,
+#                             parameterCd=parm.cd,
+#                             startDate="1990-01-01",
+#                             endDate=today.text)) |> 
+#   select(sitenumber=site_no,
+#          date=Date,
+#          mean_temp=X_00010_00003,
+#          mean_discharge=X_00060_00003) |> 
+#   mutate(date=as_date(date),
+#          year=year(date)) |> 
+#   left_join(water.sites,by="sitenumber")
 
-
-daily.map <- map_dfr(water.sites$sitenumber, 
-                     ~ readNWISdv(siteNumbers=.x,
-                            parameterCd=parm.cd,
-                            startDate="1990-01-01",
-                            endDate=today.text)) |> 
-  select(sitenumber=site_no,
-         date=Date,
-         mean_temp=X_00010_00003,
-         mean_discharge=X_00060_00003) |> 
-  mutate(date=as_date(date),
-         year=year(date)) |> 
-  left_join(water.sites,by="sitenumber")
+daily.map <- read_waterdata_daily(monitoring_location_id = water.sites$newsitenumbers,
+                                      parameter_code = parm.cd,
+                                      statistic_id = "00003",
+                                      time=c("1990-01-01",as.character(today()))) %>% 
+  mutate(variable=case_when(
+    parameter_code == "00060" ~ "mean_discharge",
+    parameter_code == "00010" ~ "mean_temp"
+  ),
+  year=year(time)) %>% 
+  select(newsitenumbers=monitoring_location_id,
+         date=time,
+         year,
+         variable,
+         value) %>% 
+  st_drop_geometry() %>% 
+  pivot_wider(names_from = variable,
+              values_from = value) %>% 
+  left_join(water.sites,by="newsitenumbers")
 
 
 
@@ -462,7 +483,7 @@ prev_year <- today()-years(1)
 
 water.dat <- daily.map |> 
    filter(date>=prev_year) |> 
-   mutate(group=sitenumber)
+   mutate(group=newsitenumbers)
 
 saveRDS(water.dat,
         "data/water")
